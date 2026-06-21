@@ -1,8 +1,11 @@
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from .database import engine, get_db
-from . import models, schemas, ai_service
+from database import engine, get_db
+from database import Base
+import models
+import schemas
+import ai_service
 
 # Create the database tables
 models.Base.metadata.create_all(bind=engine)
