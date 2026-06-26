@@ -73,7 +73,7 @@ export default function LandingPage() {
       <MainNav detectedState={userState} userLat={userLat} userLon={userLon} />
 
       {/* 3. ActionBar */}
-      <div className="bg-gray-50 border-b border-gray-200 py-3 px-6 flex justify-center gap-8 text-sm font-semibold">
+      <div className="bg-gray-50 border-b border-gray-200 py-3 px-4 flex flex-wrap justify-center gap-3 text-sm font-semibold">
         <button className="flex items-center gap-2 text-slate-600 hover:text-brand transition">
           <PhoneCall className="w-4 h-4" /> Request a Callback
         </button>
@@ -91,7 +91,7 @@ export default function LandingPage() {
       {/* --- Phase 2: Hero & Quick Links --- */}
       
       {/* 4. Hero Section */}
-      <div className="relative h-[500px] w-full flex flex-col items-center justify-center bg-slate-100 overflow-hidden">
+      <div className="relative min-h-[300px] md:h-[500px] w-full flex flex-col items-center justify-center bg-slate-100 overflow-hidden">
         {/* Placeholder for actual background image of doctors */}
         <img 
           src="https://images.unsplash.com/photo-1551076805-e18690c5e53b?q=80&w=2000&auto=format&fit=crop" 
@@ -101,8 +101,8 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-gradient-to-r from-white/80 to-white/40"></div>
         
         {/* Hero Text Box */}
-        <div className="relative z-10 bg-white/80 backdrop-blur-md px-12 py-8 rounded-2xl shadow-xl border border-white/50 text-center max-w-4xl">
-          <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight">
+        <div className="relative z-10 bg-white/80 backdrop-blur-md px-4 py-6 md:px-12 md:py-8 rounded-2xl shadow-xl border border-white/50 text-center max-w-4xl mx-4">
+          <h1 className="text-2xl sm:text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Healthcare for Good<br/>Today. Tomorrow. Always
           </h1>
         </div>
@@ -203,8 +203,8 @@ export default function LandingPage() {
 
       {/* 7. Promotional Banners (Scrollable) */}
       <div className="container mx-auto px-6 mb-20 overflow-x-auto pb-4">
-        <div className="flex gap-6 min-w-max">
-          <div className="w-[400px] h-[200px] rounded-2xl bg-gradient-to-br from-indigo-900 to-indigo-700 p-8 text-white relative overflow-hidden shadow-lg">
+        <div className="flex gap-6 w-max">
+          <div className="w-[280px] md:w-[400px] h-[200px] rounded-2xl bg-gradient-to-br from-indigo-900 to-indigo-700 p-8 text-white relative overflow-hidden shadow-lg">
             <div className="relative z-10">
               <h3 className="text-2xl font-bold mb-2">Psychiatry<br/>& De-addiction Hospital</h3>
               <p className="text-indigo-200 text-sm mb-4">Personalised inpatient treatment</p>
@@ -215,14 +215,14 @@ export default function LandingPage() {
             <img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=400&q=80" className="absolute right-0 bottom-0 h-full w-1/2 object-cover opacity-50 mix-blend-overlay" alt="" />
           </div>
 
-          <div className="w-[400px] h-[200px] rounded-2xl bg-gradient-to-r from-emerald-100 to-emerald-50 p-8 relative overflow-hidden shadow-lg border border-emerald-100 flex items-center">
+          <div className="w-[280px] md:w-[400px] h-[200px] rounded-2xl bg-gradient-to-r from-emerald-100 to-emerald-50 p-8 relative overflow-hidden shadow-lg border border-emerald-100 flex items-center">
             <div className="relative z-10 w-full text-center">
               <h1 className="text-7xl font-black text-emerald-600 drop-shadow-md">20</h1>
               <p className="text-emerald-800 font-bold uppercase tracking-widest mt-2">Years of Trusted Care</p>
             </div>
           </div>
 
-          <div className="w-[400px] h-[200px] rounded-2xl bg-gradient-to-r from-amber-900 to-red-900 p-8 text-white relative overflow-hidden shadow-lg flex flex-col justify-center">
+          <div className="w-[280px] md:w-[400px] h-[200px] rounded-2xl bg-gradient-to-r from-amber-900 to-red-900 p-8 text-white relative overflow-hidden shadow-lg flex flex-col justify-center">
             <h3 className="text-2xl font-black uppercase tracking-wide leading-tight mb-2">The Future of Care<br/>Now Expanding</h3>
             <span className="bg-brand text-white text-xs font-bold px-3 py-1 self-start rounded">UNVEILING SOON</span>
           </div>
@@ -268,7 +268,7 @@ export default function LandingPage() {
             </div>
             <div className="lg:w-3/4">
               <div className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-8 items-center">
-                <div className="w-48 h-48 rounded-full bg-red-50 border-[6px] border-white shadow-xl flex-shrink-0 relative overflow-hidden">
+                <div className="w-32 h-32 md:w-48 md:h-48 rounded-full bg-red-50 border-[6px] border-white shadow-xl flex-shrink-0 relative overflow-hidden">
                   <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80" alt="Patient" className="w-full h-full object-cover"/>
                 </div>
                 <div>
