@@ -71,8 +71,8 @@ export default function Dashboard() {
             <Heart className="w-6 h-6 fill-brand" />
             Tony Health
           </div>
-          <div className="flex items-center gap-6">
-            <Link to="/hospitals" className="text-sm font-semibold text-slate-600 hover:text-brand">Hospitals</Link>
+          <div className="flex items-center gap-3 md:gap-6">
+            <Link to="/hospitals" className="hidden md:block text-sm font-semibold text-slate-600 hover:text-brand">Hospitals</Link>
             <Link to="/analysis" className="bg-brand text-white px-5 py-2 rounded-full text-sm font-bold shadow-sm hover:bg-brand-dark transition">
               + New Analysis
             </Link>
@@ -112,7 +112,7 @@ export default function Dashboard() {
             <div className="lg:col-span-2 space-y-6">
               
               {/* Feature 1: Vital Signs Tracker */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500">
