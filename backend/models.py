@@ -10,6 +10,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     name = Column(String)
     google_id = Column(String, unique=True, index=True, nullable=True) # For Gmail verification
+    hashed_password = Column(String, nullable=True) # For email/password authentication
     created_at = Column(DateTime, default=datetime.utcnow)
 
     reports = relationship("Report", back_populates="owner")

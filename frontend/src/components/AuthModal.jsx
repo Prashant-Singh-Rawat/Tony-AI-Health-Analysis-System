@@ -3,6 +3,7 @@ import { X, AlertCircle, Lock, Mail, User, Phone, Eye, EyeOff } from 'lucide-rea
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import axios from 'axios';
 
 export default function AuthModal({ isOpen, onClose }) {
   const [isLogin, setIsLogin] = useState(false);
@@ -32,18 +33,27 @@ export default function AuthModal({ isOpen, onClose }) {
       if (!credentialResponse?.credential) {
         throw new Error('No credential received from Google.');
       }
-      const decoded = jwtDecode(credentialResponse.credential);
-      const user = {
-        id: decoded.sub,
-        name: decoded.name,
-        email: decoded.email,
-        picture: decoded.picture,
-        token: credentialResponse.credential,
-      };
-      localStorage.setItem('tony_health_user', JSON.stringify(user));
-      setLoading(false);
-      onClose();
-      navigate('/dashboard');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      axios.post(`${apiBase}/auth/google`, { token: credentialResponse.credential })
+        .then(res => {
+          const user = {
+            id: res.data.id,
+            name: res.data.name,
+            email: res.data.email,
+            picture: jwtDecode(credentialResponse.credential).picture,
+            token: credentialResponse.credential,
+          };
+          localStorage.setItem('tony_health_user', JSON.stringify(user));
+          setLoading(false);
+          onClose();
+          navigate('/dashboard');
+        })
+        .catch(err => {
+          setLoading(false);
+          const errMsg = err.response?.data?.detail || 'Google authentication failed at database level.';
+          setError(errMsg);
+          console.error('Google backend auth error:', err);
+        });
     } catch (err) {
       setLoading(false);
       setError('Google Sign-In failed. Please try again.');
@@ -81,20 +91,32 @@ export default function AuthModal({ isOpen, onClose }) {
 
     setLoading(true);
 
-    // Simulate async auth (replace with real API call when backend auth is ready)
-    setTimeout(() => {
-      const user = {
-        id: `user_${Date.now()}`,
-        name: form.name || form.email.split('@')[0],
-        email: form.email,
-        picture: null,
-        token: `local_token_${Date.now()}`,
-      };
-      localStorage.setItem('tony_health_user', JSON.stringify(user));
-      setLoading(false);
-      onClose();
-      navigate('/dashboard');
-    }, 1000);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const endpoint = isLogin ? `${apiBase}/auth/login` : `${apiBase}/auth/register`;
+    const payload = isLogin 
+      ? { email: form.email, password: form.password } 
+      : { email: form.email, name: form.name, password: form.password };
+
+    axios.post(endpoint, payload)
+      .then(res => {
+        const user = {
+          id: res.data.id,
+          name: res.data.name,
+          email: res.data.email,
+          picture: null,
+          token: `local_token_${res.data.id}`,
+        };
+        localStorage.setItem('tony_health_user', JSON.stringify(user));
+        setLoading(false);
+        onClose();
+        navigate('/dashboard');
+      })
+      .catch(err => {
+        setLoading(false);
+        const errMsg = err.response?.data?.detail || 'Authentication failed. Please check details and try again.';
+        setError(errMsg);
+        console.error('Auth error:', err);
+      });
   };
 
   const handleClose = () => {

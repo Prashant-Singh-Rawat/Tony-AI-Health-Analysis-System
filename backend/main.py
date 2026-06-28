@@ -8,6 +8,8 @@ import schemas
 import ai_service
 import math
 import httpx
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 # Create the database tables
 models.Base.metadata.create_all(bind=engine)
@@ -23,12 +25,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from google.oauth2 import id_token
-from google.auth.transport import requests
+from passlib.context import CryptContext
 from pydantic import BaseModel
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
 class GoogleAuth(BaseModel):
     token: str
+
+@app.post("/auth/register", response_model=schemas.User)
+def register_user(user: schemas.UserRegister, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_pwd = get_password_hash(user.password)
+    new_user = models.User(
+        email=user.email,
+        name=user.name,
+        hashed_password=hashed_pwd
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+@app.post("/auth/login", response_model=schemas.User)
+def login_user(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.email == credentials.email).first()
+    if not db_user:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+    
+    if not db_user.hashed_password:
+        raise HTTPException(status_code=400, detail="Please sign in with Google for this account")
+        
+    if not verify_password(credentials.password, db_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+        
+    return db_user
 
 @app.post("/auth/google", response_model=schemas.User)
 def verify_google_token(auth: GoogleAuth, db: Session = Depends(get_db)):
