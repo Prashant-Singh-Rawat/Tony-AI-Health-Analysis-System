@@ -341,9 +341,11 @@ export default function LandingPage() {
                   <span className="font-bold text-slate-800 group-hover:text-brand transition-colors">{faq.title}</span>
                   <ChevronDown className={`w-5 h-5 text-gray-400 group-hover:text-brand transition-transform duration-300 ${activeFAQ === i ? 'rotate-180' : ''}`} />
                 </div>
-                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${activeFAQ === i ? 'max-h-48 border-t border-gray-100' : 'max-h-0'}`}>
-                  <div className="p-6 text-sm text-slate-600 leading-relaxed bg-slate-50">
-                    {faq.content}
+                <div className={`grid transition-all duration-300 ease-in-out ${activeFAQ === i ? 'grid-rows-[1fr] border-t border-gray-100' : 'grid-rows-[0fr]'}`}>
+                  <div className="overflow-hidden">
+                    <div className="p-6 text-sm text-slate-600 leading-relaxed bg-slate-50">
+                      {faq.content}
+                    </div>
                   </div>
                 </div>
               </div>
