@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useRef  } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UploadCloud, File, Loader2, AlertCircle, CheckCircle, TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { UploadCloud, File, Loader2, AlertCircle, CheckCircle, TrendingUp, TrendingDown, Activity,RotateCcw  } from 'lucide-react';
 
 export default function Analysis() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
   const getUser = () => {
@@ -33,6 +34,24 @@ export default function Analysis() {
     if (status === 'Improving') return <TrendingUp className="w-5 h-5 text-green-500" />;
     if (status === 'Worsening') return <TrendingDown className="w-5 h-5 text-red-500" />;
     return <Activity className="w-5 h-5 text-blue-500" />;
+  };
+
+const hasFormData = () => Boolean(file || result || error);
+
+  const handleClearForm = () => {
+    if (hasFormData()) {
+      const confirmed = window.confirm('Are you sure you want to clear the form? Any uploaded file and results will be lost.');
+      if (!confirmed) return;
+    }
+
+    setFile(null);
+    setError('');
+    setResult(null);
+    setLoading(false);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleUpload = async (e) => {
@@ -96,7 +115,7 @@ export default function Analysis() {
 
           <form onSubmit={handleUpload} className="space-y-8">
             <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 hover:border-blue-400 transition bg-gray-50 flex flex-col items-center justify-center cursor-pointer relative">
-              <input
+              <input  ref={fileInputRef}
                 type="file"
                 accept=".pdf"
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -119,14 +138,25 @@ export default function Analysis() {
 
             <div className="flex items-center justify-between">
               <Link to="/dashboard" className="text-gray-500 font-semibold hover:text-blue-600">Cancel</Link>
-              <button
-                type="submit"
-                disabled={!file || loading}
-                className={`flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-lg transition ${(!file || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
-              >
-                {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-                {loading ? 'Analyzing with AI...' : 'Analyze Report'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleClearForm}
+                  disabled={loading || !hasFormData()}
+                  className={`flex items-center gap-2 border border-gray-300 text-gray-600 px-6 py-3 rounded-full font-bold transition ${(loading || !hasFormData()) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 hover:text-gray-800'}`}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Clear Form
+                </button>
+                <button
+                  type="submit"
+                  disabled={!file || loading}
+                  className={`flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-lg transition ${(!file || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+                >
+                  {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                  {loading ? 'Analyzing with AI...' : 'Analyze Report'}
+                </button>
+              </div>
             </div>
           </form>
         </div>
