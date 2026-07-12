@@ -13,6 +13,8 @@ export default function Analysis() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [displayScore, setDisplayScore] = useState(0);
   const fileInputRef = useRef(null);
+  const resultsHeadingRef = useRef(null);
+  const submitButtonRef = useRef(null);
   const navigate = useNavigate();
 
   const getUser = () => {
@@ -131,8 +133,17 @@ const hasFormData = () => Boolean(file || result || error || dragError);
       setDisplayScore(current);
       if (current >= target) clearInterval(interval);
     }, 10);
+    // Focus results heading when results appear
+    setTimeout(() => resultsHeadingRef.current?.focus(), 100);
     return () => clearInterval(interval);
   }, [result]);
+
+  useEffect(() => {
+    // Focus submit button when file is selected
+    if (file && !loading) {
+      submitButtonRef.current?.focus();
+    }
+  }, [file, loading]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -146,7 +157,7 @@ const hasFormData = () => Boolean(file || result || error || dragError);
           </p>
 
           {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 mb-6 text-sm text-left">
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 mb-6 text-sm text-left" role="alert" aria-live="assertive">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
@@ -154,8 +165,12 @@ const hasFormData = () => Boolean(file || result || error || dragError);
 
           <form onSubmit={handleUpload} className="space-y-8">
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="Upload PDF report. Click or drag and drop a file."
               className={`border-2 border-dashed rounded-2xl p-12 transition-all duration-200 bg-slate-50 flex flex-col items-center justify-center cursor-pointer relative ${isDragging ? 'border-brand bg-brand-light shadow-md scale-[1.02]' : 'border-gray-300 hover:border-brand/50 shadow-sm scale-100'}`}
               onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
               onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
               onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
               onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
@@ -180,6 +195,8 @@ const hasFormData = () => Boolean(file || result || error || dragError);
                 type="file"
                 accept=".pdf"
                 hidden
+                aria-hidden="true"
+                tabIndex={-1}
                 onChange={(e) => { setFile(e.target.files[0]); setError(''); setResult(null); setDragError(''); }}
               />
               {file ? (
@@ -201,20 +218,23 @@ const hasFormData = () => Boolean(file || result || error || dragError);
             </div>
 
             <div className="flex items-center justify-between">
-              <Link to="/dashboard" className="text-slate-500 font-semibold hover:text-brand">Cancel</Link>
+              <Link to="/dashboard" className="text-slate-500 font-semibold hover:text-brand" aria-label="Return to dashboard without uploading">Cancel</Link>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleClearForm}
                   disabled={loading || !hasFormData()}
+                  aria-disabled={loading || !hasFormData() ? 'true' : 'false'}
                   className={`flex items-center gap-2 border border-gray-300 text-gray-600 px-6 py-3 rounded-full font-bold transition ${(loading || !hasFormData()) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 hover:text-gray-800'}`}
                 >
                   <RotateCcw className="w-4 h-4" />
                   Clear Form
                 </button>
                 <button
+                  ref={submitButtonRef}
                   type="submit"
                   disabled={!file || loading}
+                  aria-busy={loading ? 'true' : 'false'}
                   className={`flex items-center gap-2 bg-brand text-white px-8 py-3 rounded-full font-bold shadow-lg transition ${(!file || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-brand-dark'}`}
                 >
                   {loading && <Loader2 className="w-5 h-5 animate-spin" />}
@@ -250,10 +270,10 @@ const hasFormData = () => Boolean(file || result || error || dragError);
         )}
 
         {result && (
-          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500" role="region" aria-live="polite" aria-label="Analysis results">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-6 h-6 text-green-500" />
-              <h2 className="text-2xl font-bold text-slate-800">Analysis Complete</h2>
+              <h2 ref={resultsHeadingRef} tabIndex={-1} className="text-2xl font-bold text-slate-800 outline-none">Analysis Complete</h2>
             </div>
 
             <div className={`rounded-2xl border p-6 ${getRiskBg(result.risk_score ?? 0)}`}>
@@ -263,7 +283,14 @@ const hasFormData = () => Boolean(file || result || error || dragError);
                   {displayScore} / 100
                 </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="w-full bg-gray-200 rounded-full h-3 overflow-hidden"
+                role="progressbar"
+                aria-valuenow={result.risk_score ?? 0}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Health risk score: ${Math.round(result.risk_score ?? 0)} percent`}
+              >
                 <div
                   className={`h-3 rounded-full transition-all duration-1000 ease-out ${(result.risk_score ?? 0) >= 70 ? 'bg-red-500' : (result.risk_score ?? 0) >= 40 ? 'bg-yellow-500' : 'bg-green-500'}`}
                   style={{ width: `${result.risk_score ?? 0}%` }}
@@ -272,11 +299,11 @@ const hasFormData = () => Boolean(file || result || error || dragError);
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-brand-light rounded-2xl p-4 border border-brand/20">
+              <div className="bg-brand-light rounded-2xl p-4 border border-brand/20" aria-label={`Diagnosed condition: ${result.disease_type || 'General Health'}`}>
                 <p className="text-xs font-bold text-brand uppercase tracking-wider mb-1">Condition</p>
                 <p className="font-bold text-slate-800 text-lg">{result.disease_type || 'General Health'}</p>
               </div>
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200" aria-label={`Overall health status: ${result.overall_status}`}>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Overall Status</p>
                 <div className="flex items-center gap-2">
                   {getStatusIcon(result.overall_status)}
@@ -285,17 +312,17 @@ const hasFormData = () => Boolean(file || result || error || dragError);
               </div>
             </div>
 
-            <div className="bg-slate-50 rounded-2xl p-6 border border-gray-100">
+            <div className="bg-slate-50 rounded-2xl p-6 border border-gray-100" aria-label="Medical concerns">
               <h3 className="font-bold text-slate-700 mb-2">⚠️ Medical Concerns</h3>
               <p className="text-slate-600 leading-relaxed">{result.concerns}</p>
             </div>
 
-            <div className="bg-brand-light rounded-2xl p-6 border border-brand/20">
+            <div className="bg-brand-light rounded-2xl p-6 border border-brand/20" aria-label="Recommended exercise plan">
               <h3 className="font-bold text-slate-700 mb-2">🏃 Exercise Plan</h3>
               <p className="text-slate-600 leading-relaxed">{result.exercise_plan}</p>
             </div>
 
-            <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200">
+            <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200" aria-label="Recommended diet plan">
               <h3 className="font-bold text-slate-700 mb-2">🥗 Diet Plan</h3>
               <p className="text-slate-600 leading-relaxed">{result.food_plan}</p>
             </div>
@@ -303,6 +330,7 @@ const hasFormData = () => Boolean(file || result || error || dragError);
             <button
               onClick={() => navigate('/dashboard')}
               className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg"
+              aria-label="Go to your health dashboard"
             >
               View Full Dashboard →
             </button>
