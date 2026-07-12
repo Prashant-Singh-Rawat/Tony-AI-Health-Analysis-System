@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UploadCloud, File, Loader2, AlertCircle, CheckCircle, TrendingUp, TrendingDown, Activity,RotateCcw  } from 'lucide-react';
+import { UploadCloud, File, Loader2, AlertCircle, CheckCircle, RotateCcw } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { getUser, getRiskColor, getRiskBg, getStatusIcon } from '../utils/analysis.jsx';
+import { uploadReport } from '../services/api';
 
 export default function Analysis() {
   const [file, setFile] = useState(null);
@@ -16,32 +18,6 @@ export default function Analysis() {
   const resultsHeadingRef = useRef(null);
   const submitButtonRef = useRef(null);
   const navigate = useNavigate();
-
-  const getUser = () => {
-    try {
-      return JSON.parse(localStorage.getItem('tony_health_user'));
-    } catch {
-      return null;
-    }
-  };
-
-  const getRiskColor = (score) => {
-    if (score >= 70) return 'text-red-600';
-    if (score >= 40) return 'text-yellow-600';
-    return 'text-green-600';
-  };
-
-  const getRiskBg = (score) => {
-    if (score >= 70) return 'bg-red-50 border-red-200';
-    if (score >= 40) return 'bg-yellow-50 border-yellow-200';
-    return 'bg-green-50 border-green-200';
-  };
-
-  const getStatusIcon = (status) => {
-    if (status === 'Improving') return <TrendingUp className="w-5 h-5 text-green-500" />;
-    if (status === 'Worsening') return <TrendingDown className="w-5 h-5 text-red-500" />;
-    return <Activity className="w-5 h-5 text-slate-500" />;
-  };
 
 const hasFormData = () => Boolean(file || result || error || dragError);
 
@@ -91,26 +67,8 @@ const hasFormData = () => Boolean(file || result || error || dragError);
     const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/users/${user.id}/upload_report`,
-        {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal,
-        }
-      );
-
+      const data = await uploadReport(file, user.id, controller.signal);
       clearTimeout(timeout);
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'Failed to analyze report.');
-      }
-
-      const data = await response.json();
       setResult(data);
     } catch (err) {
       if (err.name === 'AbortError') {
