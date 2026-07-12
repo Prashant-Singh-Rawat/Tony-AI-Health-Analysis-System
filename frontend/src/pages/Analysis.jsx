@@ -58,6 +58,13 @@ const hasFormData = () => Boolean(file || result || error);
     e.preventDefault();
     if (!file) return;
 
+    // Client-side file size validation (max 10MB)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX_FILE_SIZE) {
+      setError('File size exceeds 10 MB limit. Please upload a smaller file.');
+      return;
+    }
+
     setError('');
     setResult(null);
     setLoading(true);
