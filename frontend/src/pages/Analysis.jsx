@@ -7,6 +7,7 @@ export default function Analysis() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -132,7 +133,25 @@ const hasFormData = () => Boolean(file || result || error);
           )}
 
           <form onSubmit={handleUpload} className="space-y-8">
-            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 hover:border-brand/50 transition bg-slate-50 flex flex-col items-center justify-center cursor-pointer relative">
+            <div
+              className={`border-2 border-dashed rounded-2xl p-12 transition bg-slate-50 flex flex-col items-center justify-center cursor-pointer relative ${isDragging ? 'border-brand bg-brand/5' : 'border-gray-300 hover:border-brand/50'}`}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+                const droppedFile = e.dataTransfer.files[0];
+                if (droppedFile && droppedFile.type === 'application/pdf') {
+                  setFile(droppedFile);
+                  setError('');
+                  setResult(null);
+                } else {
+                  setError('Please upload a valid PDF file.');
+                }
+              }}
+            >
               <input  ref={fileInputRef}
                 type="file"
                 accept=".pdf"
