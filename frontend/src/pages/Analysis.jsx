@@ -504,6 +504,9 @@ function UploadView({ file, setFile, loading, error, onSubmit }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Analysis() {
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [report, setReport] = useState(null);
 
   const handleUpload = async () => {
