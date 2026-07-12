@@ -69,6 +69,7 @@ const hasFormData = () => Boolean(file || result || error || dragError);
     }
 
     setError('');
+    setDragError('');
     setResult(null);
     setLoading(true);
 
