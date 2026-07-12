@@ -1,6 +1,7 @@
 import { useState, useRef  } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UploadCloud, File, Loader2, AlertCircle, CheckCircle, TrendingUp, TrendingDown, Activity,RotateCcw  } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Analysis() {
   const [file, setFile] = useState(null);
@@ -9,6 +10,7 @@ export default function Analysis() {
   const [result, setResult] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragError, setDragError] = useState('');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -40,20 +42,22 @@ export default function Analysis() {
 
 const hasFormData = () => Boolean(file || result || error || dragError);
 
-  const handleClearForm = () => {
-    if (hasFormData()) {
-      const confirmed = window.confirm('Are you sure you want to clear the form? Any uploaded file and results will be lost.');
-      if (!confirmed) return;
-    }
-
+  const resetForm = () => {
     setFile(null);
     setError('');
     setResult(null);
     setLoading(false);
     setDragError('');
-
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleClearForm = () => {
+    if (hasFormData()) {
+      setShowClearConfirm(true);
+    } else {
+      resetForm();
     }
   };
 
@@ -169,13 +173,13 @@ const hasFormData = () => Boolean(file || result || error || dragError);
                 <div className="flex flex-col items-center">
                   <File className="w-12 h-12 text-brand mb-3" />
                   <span className="font-semibold text-slate-700">{file.name}</span>
-                  <span className="text-sm text-gray-500 mt-1">Click to change file</span>
+                  <span className="text-sm text-slate-500 mt-1">Click to change file</span>
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
-                  <UploadCloud className="w-12 h-12 text-gray-400 mb-3" />
+                  <UploadCloud className="w-12 h-12 text-slate-400 mb-3" />
                   <span className="font-semibold text-slate-700">Drag & Drop your PDF here</span>
-                  <span className="text-sm text-gray-500 mt-1">or click to browse</span>
+                  <span className="text-sm text-slate-500 mt-1">or click to browse</span>
                 </div>
               )}
               {dragError && (
@@ -184,7 +188,7 @@ const hasFormData = () => Boolean(file || result || error || dragError);
             </div>
 
             <div className="flex items-center justify-between">
-              <Link to="/dashboard" className="text-gray-500 font-semibold hover:text-brand">Cancel</Link>
+              <Link to="/dashboard" className="text-slate-500 font-semibold hover:text-brand">Cancel</Link>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -267,6 +271,16 @@ const hasFormData = () => Boolean(file || result || error || dragError);
             </button>
           </div>
         )}
+
+        <ConfirmDialog
+          isOpen={showClearConfirm}
+          title="Clear Form?"
+          message="Any uploaded file and results will be lost."
+          confirmLabel="Clear"
+          cancelLabel="Cancel"
+          onConfirm={() => { setShowClearConfirm(false); resetForm(); }}
+          onCancel={() => setShowClearConfirm(false)}
+        />
       </div>
     </div>
   );
