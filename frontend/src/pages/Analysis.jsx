@@ -8,6 +8,7 @@ export default function Analysis() {
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragError, setDragError] = useState('');
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -37,7 +38,7 @@ export default function Analysis() {
     return <Activity className="w-5 h-5 text-slate-500" />;
   };
 
-const hasFormData = () => Boolean(file || result || error);
+const hasFormData = () => Boolean(file || result || error || dragError);
 
   const handleClearForm = () => {
     if (hasFormData()) {
@@ -49,6 +50,7 @@ const hasFormData = () => Boolean(file || result || error);
     setError('');
     setResult(null);
     setLoading(false);
+    setDragError('');
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -134,7 +136,8 @@ const hasFormData = () => Boolean(file || result || error);
 
           <form onSubmit={handleUpload} className="space-y-8">
             <div
-              className={`border-2 border-dashed rounded-2xl p-12 transition bg-slate-50 flex flex-col items-center justify-center cursor-pointer relative ${isDragging ? 'border-brand bg-brand/5' : 'border-gray-300 hover:border-brand/50'}`}
+              className={`border-2 border-dashed rounded-2xl p-12 transition-all duration-200 bg-slate-50 flex flex-col items-center justify-center cursor-pointer relative ${isDragging ? 'border-brand bg-brand-light shadow-md scale-[1.02]' : 'border-gray-300 hover:border-brand/50 shadow-sm scale-100'}`}
+              onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
               onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
               onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
@@ -142,21 +145,24 @@ const hasFormData = () => Boolean(file || result || error);
                 e.preventDefault();
                 e.stopPropagation();
                 setIsDragging(false);
+                setDragError('');
                 const droppedFile = e.dataTransfer.files[0];
-                if (droppedFile && droppedFile.type === 'application/pdf') {
-                  setFile(droppedFile);
-                  setError('');
-                  setResult(null);
-                } else {
-                  setError('Please upload a valid PDF file.');
+                if (!droppedFile) return;
+                if (droppedFile.type !== 'application/pdf') {
+                  setDragError('Only PDF files are accepted.');
+                  return;
                 }
+                setFile(droppedFile);
+                setError('');
+                setResult(null);
               }}
             >
-              <input  ref={fileInputRef}
+              <input
+                ref={fileInputRef}
                 type="file"
                 accept=".pdf"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={(e) => { setFile(e.target.files[0]); setError(''); setResult(null); }}
+                hidden
+                onChange={(e) => { setFile(e.target.files[0]); setError(''); setResult(null); setDragError(''); }}
               />
               {file ? (
                 <div className="flex flex-col items-center">
@@ -170,6 +176,9 @@ const hasFormData = () => Boolean(file || result || error);
                   <span className="font-semibold text-slate-700">Drag & Drop your PDF here</span>
                   <span className="text-sm text-gray-500 mt-1">or click to browse</span>
                 </div>
+              )}
+              {dragError && (
+                <p className="text-sm text-red-600 mt-3" role="alert">{dragError}</p>
               )}
             </div>
 
