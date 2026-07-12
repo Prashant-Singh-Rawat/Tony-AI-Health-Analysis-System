@@ -33,7 +33,7 @@ export default function Analysis() {
   const getStatusIcon = (status) => {
     if (status === 'Improving') return <TrendingUp className="w-5 h-5 text-green-500" />;
     if (status === 'Worsening') return <TrendingDown className="w-5 h-5 text-red-500" />;
-    return <Activity className="w-5 h-5 text-blue-500" />;
+    return <Activity className="w-5 h-5 text-slate-500" />;
   };
 
 const hasFormData = () => Boolean(file || result || error);
@@ -132,7 +132,7 @@ const hasFormData = () => Boolean(file || result || error);
           )}
 
           <form onSubmit={handleUpload} className="space-y-8">
-            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 hover:border-blue-400 transition bg-gray-50 flex flex-col items-center justify-center cursor-pointer relative">
+            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 hover:border-brand/50 transition bg-slate-50 flex flex-col items-center justify-center cursor-pointer relative">
               <input  ref={fileInputRef}
                 type="file"
                 accept=".pdf"
@@ -141,7 +141,7 @@ const hasFormData = () => Boolean(file || result || error);
               />
               {file ? (
                 <div className="flex flex-col items-center">
-                  <File className="w-12 h-12 text-blue-500 mb-3" />
+                  <File className="w-12 h-12 text-brand mb-3" />
                   <span className="font-semibold text-slate-700">{file.name}</span>
                   <span className="text-sm text-gray-500 mt-1">Click to change file</span>
                 </div>
@@ -155,7 +155,7 @@ const hasFormData = () => Boolean(file || result || error);
             </div>
 
             <div className="flex items-center justify-between">
-              <Link to="/dashboard" className="text-gray-500 font-semibold hover:text-blue-600">Cancel</Link>
+              <Link to="/dashboard" className="text-gray-500 font-semibold hover:text-brand">Cancel</Link>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -169,7 +169,7 @@ const hasFormData = () => Boolean(file || result || error);
                 <button
                   type="submit"
                   disabled={!file || loading}
-                  className={`flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-lg transition ${(!file || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+                  className={`flex items-center gap-2 bg-brand text-white px-8 py-3 rounded-full font-bold shadow-lg transition ${(!file || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-brand-dark'}`}
                 >
                   {loading && <Loader2 className="w-5 h-5 animate-spin" />}
                   {loading ? 'Analyzing with AI...' : 'Analyze Report'}
@@ -202,12 +202,12 @@ const hasFormData = () => Boolean(file || result || error);
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-                <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Condition</p>
+              <div className="bg-brand-light rounded-2xl p-4 border border-brand/20">
+                <p className="text-xs font-bold text-brand uppercase tracking-wider mb-1">Condition</p>
                 <p className="font-bold text-slate-800 text-lg">{result.disease_type || 'General Health'}</p>
               </div>
-              <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
-                <p className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">Overall Status</p>
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Overall Status</p>
                 <div className="flex items-center gap-2">
                   {getStatusIcon(result.overall_status)}
                   <p className="font-bold text-slate-800 text-lg">{result.overall_status}</p>
@@ -220,19 +220,19 @@ const hasFormData = () => Boolean(file || result || error);
               <p className="text-slate-600 leading-relaxed">{result.concerns}</p>
             </div>
 
-            <div className="bg-green-50 rounded-2xl p-6 border border-green-100">
+            <div className="bg-brand-light rounded-2xl p-6 border border-brand/20">
               <h3 className="font-bold text-slate-700 mb-2">🏃 Exercise Plan</h3>
               <p className="text-slate-600 leading-relaxed">{result.exercise_plan}</p>
             </div>
 
-            <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100">
+            <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200">
               <h3 className="font-bold text-slate-700 mb-2">🥗 Diet Plan</h3>
               <p className="text-slate-600 leading-relaxed">{result.food_plan}</p>
             </div>
 
             <button
               onClick={() => navigate('/dashboard')}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg"
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg"
             >
               View Full Dashboard →
             </button>
