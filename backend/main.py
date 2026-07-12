@@ -22,6 +22,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global exception handler middleware to prevent server crashes
+@app.middleware("http")
+async def catch_exceptions_middleware(request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        logger.error(f"[GlobalError] Unhandled exception occurred: {e}", exc_info=True)
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "An internal server error occurred. Please try again later."}
+        )
+
 # Register sub-routers
 app.include_router(auth.router)
 app.include_router(reports.router)
