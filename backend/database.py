@@ -2,9 +2,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Use DATABASE_URL env var on Render (PostgreSQL).
-# Falls back to a local SQLite file for development.
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./tonyhealth.db")
+import config
+
+DATABASE_URL = config.DATABASE_URL
 
 # Render's PostgreSQL URLs start with "postgres://" but SQLAlchemy 1.4+
 # requires "postgresql://" — fix it automatically.
