@@ -215,17 +215,17 @@ const hasFormData = () => Boolean(file || result || error || dragError);
               <h2 className="text-2xl font-bold text-slate-800">Analysis Complete</h2>
             </div>
 
-            <div className={`rounded-2xl border p-6 ${getRiskBg(result.risk_score)}`}>
+            <div className={`rounded-2xl border p-6 ${getRiskBg(result.risk_score ?? 0)}`}>
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-slate-700">Risk Score</span>
-                <span className={`text-3xl font-extrabold ${getRiskColor(result.risk_score)}`}>
+                <span className={`text-3xl font-extrabold ${getRiskColor(result.risk_score ?? 0)}`}>
                   {result.risk_score?.toFixed(1)} / 100
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
-                  className={`h-3 rounded-full transition-all duration-700 ${result.risk_score >= 70 ? 'bg-red-500' : result.risk_score >= 40 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                  style={{ width: `${result.risk_score}%` }}
+                  className={`h-3 rounded-full transition-all duration-700 ${(result.risk_score ?? 0) >= 70 ? 'bg-red-500' : (result.risk_score ?? 0) >= 40 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                  style={{ width: `${result.risk_score ?? 0}%` }}
                 />
               </div>
             </div>
