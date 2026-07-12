@@ -76,6 +76,9 @@ const hasFormData = () => Boolean(file || result || error);
       return;
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -85,8 +88,11 @@ const hasFormData = () => Boolean(file || result || error);
         {
           method: 'POST',
           body: formData,
+          signal: controller.signal,
         }
       );
+
+      clearTimeout(timeout);
 
       if (!response.ok) {
         const errData = await response.json();
@@ -96,17 +102,22 @@ const hasFormData = () => Boolean(file || result || error);
       const data = await response.json();
       setResult(data);
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      if (err.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError(err.message || 'Something went wrong. Please try again.');
+      }
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-3xl mx-auto">
 
-        <div className="bg-white rounded-3xl p-12 shadow-xl border border-gray-100 text-center mb-8">
+        <div className="bg-white rounded-2xl p-12 shadow-xl border border-gray-100 text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-800 mb-4">Upload Medical Report</h1>
           <p className="text-slate-600 mb-8">
             Upload your latest PDF report. Our Gemini AI will dynamically extract parameters,
@@ -169,7 +180,7 @@ const hasFormData = () => Boolean(file || result || error);
         </div>
 
         {result && (
-          <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 space-y-6">
+          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100 space-y-6">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-6 h-6 text-green-500" />
               <h2 className="text-2xl font-bold text-slate-800">Analysis Complete</h2>
