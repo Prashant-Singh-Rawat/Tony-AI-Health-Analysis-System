@@ -1,4 +1,4 @@
-import { useState, useRef  } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UploadCloud, File, Loader2, AlertCircle, CheckCircle, TrendingUp, TrendingDown, Activity,RotateCcw  } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -11,6 +11,7 @@ export default function Analysis() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragError, setDragError] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [displayScore, setDisplayScore] = useState(0);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -121,6 +122,18 @@ const hasFormData = () => Boolean(file || result || error || dragError);
     }
   };
 
+  useEffect(() => {
+    if (!result) { setDisplayScore(0); return; }
+    const target = Math.round(result.risk_score ?? 0);
+    let current = 0;
+    const interval = setInterval(() => {
+      current += 1;
+      setDisplayScore(current);
+      if (current >= target) clearInterval(interval);
+    }, 10);
+    return () => clearInterval(interval);
+  }, [result]);
+
   return (
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-3xl mx-auto">
@@ -212,8 +225,32 @@ const hasFormData = () => Boolean(file || result || error || dragError);
           </form>
         </div>
 
+        {loading && (
+          <div className="bg-white rounded-2xl p-8 shadow-xl border border-slate-100 space-y-6 animate-pulse">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 bg-slate-200 rounded-full" />
+              <div className="h-8 w-48 bg-slate-200 rounded" />
+            </div>
+            <div className="rounded-2xl border border-slate-100 p-6 bg-slate-50">
+              <div className="h-4 w-24 bg-slate-200 rounded mb-3" />
+              <div className="h-10 w-32 bg-slate-200 rounded mb-3" />
+              <div className="h-3 w-full bg-slate-200 rounded-full" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="h-20 bg-slate-200 rounded-2xl" />
+              <div className="h-20 bg-slate-200 rounded-2xl" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-4 w-full bg-slate-200 rounded" />
+              <div className="h-4 w-3/4 bg-slate-200 rounded" />
+            </div>
+            <div className="h-24 bg-slate-200 rounded-2xl" />
+            <div className="h-24 bg-slate-200 rounded-2xl" />
+          </div>
+        )}
+
         {result && (
-          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100 space-y-6">
+          <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-6 h-6 text-green-500" />
               <h2 className="text-2xl font-bold text-slate-800">Analysis Complete</h2>
@@ -248,7 +285,7 @@ const hasFormData = () => Boolean(file || result || error || dragError);
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+            <div className="bg-slate-50 rounded-2xl p-6 border border-gray-100">
               <h3 className="font-bold text-slate-700 mb-2">⚠️ Medical Concerns</h3>
               <p className="text-slate-600 leading-relaxed">{result.concerns}</p>
             </div>
