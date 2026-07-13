@@ -131,22 +131,23 @@ async def upload_and_analyze_report(
     is_watermark_only = "camscanner" in extracted_text.lower().replace(" ", "") and meaningful_chars < 200
 
     if meaningful_chars < 100 or is_watermark_only or is_scanned:
-        logger.info("[Upload] Text is low quality or watermark-only. Attempting OCR extraction via vision model...")
+        logger.info("[Upload] Text is low quality or watermark-only. Attempting OCR extraction...")
+        ocr_text = ""
+        
+        # 1. Try local PDF rendering (if poppler is installed)
         try:
             from pdf2image import convert_from_bytes
             import config as cfg
-            # Render PDF pages to images
+            logger.info("[Upload] Attempting local PDF-to-image conversion...")
             images = convert_from_bytes(file_bytes, dpi=180, poppler_path=cfg.POPPLER_PATH)
             
             ocr_texts = []
-            # Ask Gemini to OCR each page image
             for idx, img in enumerate(images[:5]):
                 logger.info(f"[OCR] Processing page {idx+1} for text extraction...")
                 ocr_prompt = "Perform OCR on this medical report page image. Extract and return ALL text, numbers, values, units, reference ranges, and flags exactly as written. Do not summarize. Do not write anything else besides the extracted text."
                 
                 page_text = ""
-                # Try primary model first, fallback to alternate model on failure
-                for model_choice in ["models/gemini-flash-latest", "models/gemini-2.0-flash", "models/gemini-2.5-pro"]:
+                for model_choice in ["models/gemini-2.5-flash", "models/gemini-2.0-flash"]:
                     try:
                         response = ai_service.client.models.generate_content(
                             model=model_choice,
@@ -162,29 +163,52 @@ async def upload_and_analyze_report(
                 if page_text:
                     ocr_texts.append(page_text)
             
-            combined_ocr = "\n".join(ocr_texts).strip()
-            
-            # Clean OCR text: remove CamScanner watermarks, normalize spacing
-            cleaned_ocr = re.sub(r'(?i)CamScanner', '', combined_ocr)
+            ocr_text = "\n".join(ocr_texts).strip()
+        except Exception as ocr_err:
+            logger.warning(f"[OCR] Local PDF-to-image conversion failed (likely missing poppler): {ocr_err}")
+
+        # 2. Cloud Fallback: Send PDF bytes directly to Gemini (no poppler needed)
+        if not ocr_text.strip():
+            logger.info("[Upload] Falling back to direct Gemini PDF document processing...")
+            from google.genai import types
+            for model_choice in ["models/gemini-2.5-flash", "models/gemini-2.0-flash"]:
+                try:
+                    prompt = "Perform OCR on this medical report PDF. Extract and return ALL text, numbers, values, units, reference ranges, and flags exactly as written. Do not summarize. Do not write anything else besides the extracted text."
+                    pdf_part = types.Part.from_bytes(
+                        data=file_bytes,
+                        mime_type="application/pdf"
+                    )
+                    response = ai_service.client.models.generate_content(
+                        model=model_choice,
+                        contents=[prompt, pdf_part],
+                    )
+                    text_out = response.text or ""
+                    if text_out.strip():
+                        logger.info(f"[OCR] Cloud PDF OCR successfully completed using {model_choice}.")
+                        ocr_text = text_out.strip()
+                        break
+                except Exception as cloud_err:
+                    logger.error(f"[OCR] Cloud PDF OCR failed with {model_choice}: {cloud_err}")
+
+        # Clean extracted OCR text
+        if ocr_text.strip():
+            cleaned_ocr = re.sub(r'(?i)CamScanner', '', ocr_text)
             cleaned_ocr = re.sub(r' {2,}', ' ', cleaned_ocr)
             cleaned_ocr = cleaned_ocr.strip()
             
             ocr_meaningful = len(cleaned_ocr.replace(" ", "").replace("\n", ""))
             if ocr_meaningful >= 50:
-                logger.info(f"[OCR] Successfully extracted {len(cleaned_ocr)} characters of medical text via OCR.")
+                logger.info(f"[OCR] Successfully extracted {len(cleaned_ocr)} characters of medical text.")
                 extracted_text = cleaned_ocr
                 is_scanned = True
                 engine_used = "vision_ocr"
                 meaningful_chars = ocr_meaningful
                 
-                # Also try to re-extract patient fields from the OCR text
                 from pdf_extractor import extract_patient_fields
                 pd = extract_patient_fields(cleaned_ocr)
                 patient_fields = pd["fields"]
             else:
-                logger.warning("[OCR] OCR returned insufficient text.")
-        except Exception as ocr_err:
-            logger.error(f"[OCR] OCR process failed: {ocr_err}", exc_info=True)
+                logger.warning("[OCR] Extracted text was too sparse.")
 
     # ── Validate: enough text to analyze? ─────────────────────────────────────
     if meaningful_chars < MIN_TEXT_FOR_ANALYSIS:

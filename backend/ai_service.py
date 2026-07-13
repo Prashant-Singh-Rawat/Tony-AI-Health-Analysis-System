@@ -276,7 +276,15 @@ Return ONLY the JSON object — no markdown, no explanation.
                 contents.append(img)
             logger.info(f"[AI] Attached {min(len(images), 5)} page images for vision")
         except Exception as e:
-            logger.warning(f"[AI] Could not attach PDF images for vision: {e}")
+            logger.warning(f"[AI] Could not attach PDF images for vision (likely missing poppler): {e}")
+            logger.info("[AI] Attaching raw PDF document directly for Gemini vision analysis...")
+            contents.insert(0, "This is a scanned medical report PDF. Extract ALL lab values visible:")
+            pdf_part = types.Part.from_bytes(
+                data=pdf_bytes,
+                mime_type="application/pdf"
+            )
+            contents.append(pdf_part)
+
 
     # ── Call Gemini ───────────────────────────────────────────────────────────
     raw_response = _call_gemini(contents)
