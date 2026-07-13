@@ -43,6 +43,9 @@ class ReportBase(BaseModel):
     overall_status: Optional[str] = None
     extracted_parameters: Optional[list] = None
     potential_diseases: Optional[list] = None
+    doctor_questions: Optional[list] = None
+    next_steps: Optional[list] = None
+
 
 class ReportCreate(ReportBase):
     pass

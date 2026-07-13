@@ -16,6 +16,7 @@ import HealthNewsFeed from '../components/landing/HealthNewsFeed';
 import PatientStoriesSection from '../components/landing/PatientStoriesSection';
 import FAQAccordion from '../components/landing/FAQAccordion';
 import ChatWidget from '../components/landing/ChatWidget';
+import { API_BASE_URL } from '../services/api';
 
 const WHY_CHOOSE = [
   { icon: Shield, label: 'Clinically Safe AI', desc: 'AI checked against clinical ranges with source citations.' },
@@ -106,7 +107,7 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials */}
-      <PatientStoriesSection apiBase="http://localhost:8000" />
+      <PatientStoriesSection apiBase={API_BASE_URL} />
 
       {/* News Feed */}
       <HealthNewsFeed count={6} />

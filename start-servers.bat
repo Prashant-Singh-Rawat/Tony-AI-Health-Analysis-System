@@ -7,7 +7,7 @@ REM ===================================================
 echo Starting Heart AI System...
 
 REM Start Backend
-start "Heart-AI-Backend" /min cmd /c "cd /d C:\Users\prash\OneDrive\Documents\Heart-AI-System\backend && C:\Users\prash\AppData\Local\Microsoft\WindowsApps\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000"
+start "Heart-AI-Backend" /min "%~dp0start-backend.bat"
 
 REM Wait 3 seconds for backend to initialize
 timeout /t 3 /nobreak >nul

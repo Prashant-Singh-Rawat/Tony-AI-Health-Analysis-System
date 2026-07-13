@@ -452,7 +452,7 @@ function AnalysisResults({ report, onReset }) {
 }
 
 // ─── Upload View ──────────────────────────────────────────────────────────────
-function UploadView({ file, setFile, loading, error, onSubmit }) {
+function UploadView({ file, setFile, loading, error, onSubmit, wakingUp }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-100 dark:from-slate-950 dark:via-indigo-950/10 dark:to-slate-900 flex items-center justify-center p-6">
       <div className="max-w-2xl w-full">
@@ -470,7 +470,7 @@ function UploadView({ file, setFile, loading, error, onSubmit }) {
 
         <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
           {loading ? (
-            <AnalysisLoader />
+            <AnalysisLoader wakingUp={wakingUp} />
           ) : (
             <>
               <ReportUpload
@@ -506,6 +506,7 @@ function UploadView({ file, setFile, loading, error, onSubmit }) {
 export default function Analysis() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [wakingUp, setWakingUp] = useState(false);
   const [error, setError] = useState('');
   const [report, setReport] = useState(null);
 
@@ -513,6 +514,13 @@ export default function Analysis() {
     if (!file) return;
     setError('');
     setLoading(true);
+    setWakingUp(false);
+
+    // If the request doesn't complete within 6 seconds, we assume the backend is starting up (cold start)
+    const timer = setTimeout(() => {
+      setWakingUp(true);
+    }, 6000);
+
     const user = getUser();
     try {
       const data = await apiService.uploadReport(file, user?.id);
@@ -520,13 +528,16 @@ export default function Analysis() {
       setReport(data);
     } catch (err) {
       const msg =
+        err.friendlyMessage ||
         err?.response?.data?.detail ||
         err?.message ||
         'Upload failed. Please check the file and try again.';
       console.error('[Analysis] Upload error:', err);
       setError(msg);
     } finally {
+      clearTimeout(timer);
       setLoading(false);
+      setWakingUp(false);
     }
   };
 
@@ -547,6 +558,8 @@ export default function Analysis() {
       loading={loading}
       error={error}
       onSubmit={handleUpload}
+      wakingUp={wakingUp}
     />
   );
 }
+

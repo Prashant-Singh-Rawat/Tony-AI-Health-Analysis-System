@@ -32,8 +32,11 @@ else:
     logger.error("[AI] HEALTH_AI_API not set in environment. AI analysis will not work.")
 
 # ─── Model Priority List ──────────────────────────────────────────────────────
-# Try models in order; fall back if one is unavailable.
-MODELS_TO_TRY = ["models/gemini-flash-latest", "models/gemini-2.0-flash", "models/gemini-pro-latest"]
+# Only Flash models — they share quota and have the highest free tier RPD (20/day).
+# gemini-pro-latest is intentionally excluded: it has a LOWER free tier quota
+# (separate RPD pool) and resolves to gemini-3.1-pro which exhausts faster.
+MODELS_TO_TRY = ["models/gemini-2.5-flash", "models/gemini-2.0-flash"]
+
 
 # ─── System Prompt ────────────────────────────────────────────────────────────
 SYSTEM_INSTRUCTION = """You are an expert AI medical analyst and biomarker interpretation engine.
@@ -127,36 +130,91 @@ def _extract_json(raw: str) -> dict:
     raise ValueError(f"Could not extract valid JSON from AI response. First 300 chars: {text[:300]}")
 
 
+# ─── Helper: Error Classification ────────────────────────────────────────────
+
+def _is_quota_error(e: Exception) -> bool:
+    """Return True if the exception is a rate-limit / quota exhaustion error."""
+    msg = str(e)
+    return "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower()
+
+def _is_auth_error(e: Exception) -> bool:
+    """Return True if the exception is an authentication / invalid key error."""
+    msg = str(e)
+    return "API_KEY_INVALID" in msg or "403" in msg or "PERMISSION_DENIED" in msg
+
 # ─── Helper: Try Gemini with Model Fallback ──────────────────────────────────
 
 def _call_gemini(contents: list, system_instruction: str = SYSTEM_INSTRUCTION) -> str:
-    """Try each model in MODELS_TO_TRY, return the text of the first successful response."""
+    """
+    Try each model in MODELS_TO_TRY, return the text of the first successful response.
+
+    Retry rules:
+    - Transient server errors (500, 503, network): retry up to 3 times with backoff.
+    - Quota exhaustion (429): do NOT retry — fail immediately with a clear message.
+      All models share the same API key quota, so trying other models is futile.
+    - Auth errors (403/API_KEY_INVALID): do NOT retry — fail immediately.
+    """
     if not client:
         raise RuntimeError(
             "Gemini client is not initialized. Check HEALTH_AI_API in .env — "
             "get a valid key from https://aistudio.google.com/apikey"
         )
 
+    import time
     last_error = None
-    for model_name in MODELS_TO_TRY:
-        try:
-            logger.info(f"[AI] Attempting model: {model_name}")
-            response = client.models.generate_content(
-                model=model_name,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.05,   # Very low → deterministic, minimal hallucination
-                )
-            )
-            logger.info(f"[AI] Model {model_name} responded successfully.")
-            return response.text
-        except Exception as e:
-            logger.warning(f"[AI] Model {model_name} failed: {e}")
-            last_error = e
-            continue
 
-    raise RuntimeError(f"All Gemini models failed. Last error: {last_error}")
+    for model_name in MODELS_TO_TRY:
+        for attempt in range(1, 4):
+            try:
+                logger.info(f"[AI] Attempting model: {model_name} (attempt {attempt}/3)")
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.05,
+                    )
+                )
+                logger.info(f"[AI] Model {model_name} responded successfully.")
+                return response.text
+
+            except Exception as e:
+                last_error = e
+                err_str = str(e)
+
+                # ── Quota exhaustion: stop everything immediately ──────────────
+                if _is_quota_error(e):
+                    logger.error(
+                        f"[AI] Quota exhausted on model {model_name}: {err_str}. "
+                        "Not retrying — all models share the same API key quota."
+                    )
+                    raise RuntimeError(
+                        f"429 RESOURCE_EXHAUSTED — AI quota exceeded. "
+                        "Please wait a minute before retrying, or check your Gemini API billing."
+                    )
+
+                # ── Auth error: stop everything immediately ───────────────────
+                if _is_auth_error(e):
+                    logger.error(f"[AI] Authentication error on model {model_name}: {err_str}.")
+                    raise RuntimeError(
+                        "API_KEY_INVALID — Gemini API key rejected. "
+                        "Please verify HEALTH_AI_API is a valid key from https://aistudio.google.com/apikey"
+                    )
+
+                # ── Transient error: retry with backoff ───────────────────────
+                logger.warning(
+                    f"[AI] Model {model_name} attempt {attempt}/3 failed (transient): {err_str}"
+                )
+                if attempt < 3:
+                    time.sleep(attempt)  # 1s then 2s
+                # continue to next attempt
+
+        # All 3 attempts for this model exhausted, try next model
+
+    raise RuntimeError(f"All Gemini models failed after retries. Last error: {last_error}")
+
+
+
 
 
 # ─── Main AI Analysis ─────────────────────────────────────────────────────────

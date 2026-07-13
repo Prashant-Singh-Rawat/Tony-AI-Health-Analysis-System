@@ -87,7 +87,25 @@ async def upload_and_analyze_report(
             detail="The uploaded file is empty. Please upload a valid PDF medical report."
         )
 
+    # ── Duplicate detection: skip AI if this exact file was already analyzed ───
+    import hashlib, json as _json
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+    existing = (
+        db.query(models.Report)
+        .filter(models.Report.pdf_filename == file.filename)
+        .filter(models.Report.extracted_text.isnot(None))
+        .order_by(models.Report.timestamp.desc())
+        .first()
+    )
+    # If same filename AND same user_id, return cached result (saves one Gemini call)
+    if existing and user_id and existing.user_id == user_id:
+        logger.info(f"[Upload] Duplicate detected for user {user_id} — returning cached report ID={existing.id}")
+        from fastapi.responses import JSONResponse
+        cached = schemas.Report.model_validate(existing).model_dump()
+        return JSONResponse(content=_serialize(cached))
+
     # ── Stage 1–3: Extract text from PDF ─────────────────────────────────────
+
     logger.info("[Upload] Starting multi-engine PDF extraction pipeline...")
     try:
         pipeline = run_extraction_pipeline(file_bytes)
@@ -261,18 +279,26 @@ async def upload_and_analyze_report(
         logger.warning(f"[Upload] AI pre-validation failed: {e}")
         raise HTTPException(status_code=422, detail=str(e))
     except RuntimeError as e:
-        # Gemini client issues or model failures
-        logger.error(f"[Upload] AI RuntimeError: {e}", exc_info=True)
+        # Gemini client issues or model failures (log full stack trace server-side)
+        err_msg = str(e)
+        logger.error(f"[Upload] AI RuntimeError: {err_msg}", exc_info=True)
+        
+        # Clean user-facing messages based on root causes
+        if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower():
+            friendly_detail = "AI analysis service quota exceeded (Rate limit / Resource Exhausted). Please wait a few seconds and try again."
+        elif "API_KEY_INVALID" in err_msg or "API key" in err_msg or "authentication" in err_msg.lower():
+            friendly_detail = "AI analysis authentication failed. Please verify that a valid HEALTH_AI_API key is configured in the backend environment."
+        else:
+            friendly_detail = "AI analysis service is temporarily unavailable or busy. Please try again."
+            
         raise HTTPException(
             status_code=503,
-            detail=(
-                f"AI analysis service is unavailable: {str(e)}. "
-                "Please check that HEALTH_AI_API is set to a valid Gemini API key in backend/.env."
-            )
+            detail=friendly_detail
         )
     except Exception as e:
         logger.error(f"[Upload] Unexpected AI analysis error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"AI Analysis Failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="AI Analysis Failed: An unexpected error occurred. Please try again.")
+
 
     # ── Log final AI result summary ───────────────────────────────────────────
     params = ai_result.get("extracted_parameters", [])
@@ -314,28 +340,21 @@ async def upload_and_analyze_report(
         overall_status=ai_result.get("overall_status") or "Low Risk",
         extracted_parameters=ai_result.get("extracted_parameters") or [],
         potential_diseases=ai_result.get("potential_diseases") or [],
+        doctor_questions=ai_result.get("doctor_questions") or [],
+        next_steps=ai_result.get("next_steps") or [],
     )
     db.add(db_report)
     db.commit()
     db.refresh(db_report)
     logger.info(f"[Upload] Report saved with ID={db_report.id} for user_id={db_report.user_id}")
 
-    # ── Store extra AI fields in the response dict (not in DB model) ──────────
-    # We add doctor_questions and next_steps to the returned object
-    # so the frontend can use them directly without fetching again.
-    # These are not saved in the DB model (which is fine — they can be regenerated).
     response_data = schemas.Report.model_validate(db_report)
-    # Attach extra fields as dynamic attributes for the JSON response
     response_dict = response_data.model_dump()
-    response_dict["doctor_questions"] = ai_result.get("doctor_questions") or []
-    response_dict["next_steps"] = ai_result.get("next_steps") or []
     response_dict["extraction_engine"] = engine_used
     response_dict["is_scanned_pdf"] = is_scanned
 
-    # FastAPI Response: Return the dict directly so extra fields are included
     from fastapi.responses import JSONResponse
     return JSONResponse(content=_serialize(response_dict))
-
 
 @router.get("/reports/{report_id}", response_model=schemas.Report)
 def get_report(

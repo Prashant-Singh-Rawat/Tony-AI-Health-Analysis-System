@@ -4,7 +4,7 @@ module.exports = {
       name: "heart-ai-frontend",
       script: "npx",
       args: "vite --host",
-      cwd: "C:\\Users\\prash\\OneDrive\\Documents\\Heart-AI-System\\frontend",
+      cwd: "./frontend",
       interpreter: "none",
       shell: true,
       watch: false,
@@ -17,7 +17,8 @@ module.exports = {
     },
     {
       name: "heart-ai-backend",
-      script: "C:\\Users\\prash\\OneDrive\\Documents\\Heart-AI-System\\start-backend.bat",
+      script: "start-backend.bat",
+      cwd: ".",
       interpreter: "none",
       shell: true,
       watch: false,
