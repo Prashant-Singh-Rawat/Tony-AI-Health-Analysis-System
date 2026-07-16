@@ -8,6 +8,7 @@ import ai_service
 import n8n_service
 import logging
 import re
+import json
 from deps import get_current_user
 
 router = APIRouter(tags=["reports"])
@@ -220,8 +221,8 @@ async def upload_and_analyze_report(
         disease_type=ai_result.get("disease_type") or "General Health",
         risk_score=float(ai_result.get("risk_score") or 0.0),
         concerns=ai_result.get("concerns") or "",
-        exercise_plan=ai_result.get("exercise_plan") or "",
-        food_plan=ai_result.get("food_plan") or "",
+        exercise_plan=json.dumps(ai_result.get("exercise_plan")) if isinstance(ai_result.get("exercise_plan"), dict) else str(ai_result.get("exercise_plan") or ""),
+        food_plan=json.dumps(ai_result.get("food_plan")) if isinstance(ai_result.get("food_plan"), dict) else str(ai_result.get("food_plan") or ""),
         overall_status=ai_result.get("overall_status") or "Low Risk",
         extracted_parameters=ai_result.get("extracted_parameters") or [],
         potential_diseases=ai_result.get("potential_diseases") or [],

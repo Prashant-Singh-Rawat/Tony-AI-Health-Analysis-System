@@ -92,8 +92,34 @@ YOUR ONLY JOB: Read the medical report text provided and return a single, comple
   ],
   "potential_diseases": ["list of conditions patient may be at risk for based on findings"],
   "concerns": "A clear, specific clinical paragraph describing what is abnormal and why it matters. Reference actual parameter names and values. If all values are normal, write a positive summary.",
-  "exercise_plan": "Specific, actionable exercise recommendations based on the findings. Include frequency, type, and duration.",
-  "food_plan": "Specific dietary recommendations addressing the abnormal findings. Include foods to eat and avoid.",
+  "exercise_plan": {
+    "schedule": [
+      {"day": "Mon", "activity": "...", "intensity": "...", "duration": "..."}
+    ],
+    "plan_overview": {
+      "calories_burn": 2000,
+      "recommended_days": "5-6 Days",
+      "strength_days": "2-3 Days",
+      "daily_avg": "30-45 Min"
+    },
+    "guidelines": ["list of strict safety rules or instructions tailored to the user's risk profile"],
+    "benefits": ["3 to 4 specific health benefits related to this plan"]
+  },
+  "food_plan": {
+    "daily_meals": [
+      {"day": "Mon", "breakfast": "...", "lunch": "...", "snack": "...", "dinner": "..."}
+    ],
+    "nutrition_overview": {
+      "focus": ["High Iron", "Low Carb", "Supports Immunity", "etc"],
+      "guidelines": ["list of dietary rules"],
+      "hydration_glasses": 8
+    },
+    "recommendations": {
+      "foods_to_eat": [{"name": "Spinach", "benefit": "Iron"}],
+      "foods_to_avoid": ["Fried food", "Sugary drinks"],
+      "nutrition_tip": "Specific actionable tip"
+    }
+  },
   "doctor_questions": ["List of 4-6 specific questions the patient should ask their doctor based on findings"],
   "next_steps": ["List of 3-5 specific action items the patient should take within the next 30 days"]
 }
@@ -398,3 +424,238 @@ def analyze_report_with_gemini(extracted_text: str, pdf_bytes: bytes = None) -> 
         pdf_bytes=pdf_bytes if pipeline["is_scanned"] else None,
         is_scanned=pipeline["is_scanned"],
     )
+
+# ─── Embedding and Chunking ───────────────────────────────────────────────────
+
+def chunk_text(text: str, max_size: int = 1000, overlap: int = 200) -> list[str]:
+    """
+    Split text into overlapping chunks.
+    Uses a simple character count approach.
+    """
+    if not text:
+        return []
+    
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + max_size
+        chunk = text[start:end]
+        chunks.append(chunk)
+        if end >= len(text):
+            break
+        start += (max_size - overlap)
+    
+    return chunks
+
+def generate_embedding(text: str) -> list[float]:
+    """
+    Generate vector embeddings using Gemini's text-embedding-004 model.
+    """
+    # ── Pre-flight validation ─────────────────────────────────────────────────
+    if not extracted_text or len(extracted_text.strip()) < 30:
+        raise ValueError(
+            "Extracted text is too short to analyze. "
+            "The PDF may be empty, image-only (scanned), or corrupted. "
+            "Please upload a clear, readable PDF with medical data."
+        )
+
+    pf = patient_fields or {}
+    verified_block = f"""VERIFIED PATIENT INFORMATION (extracted by regex — DO NOT CHANGE THESE):
+- VERIFIED PATIENT NAME: {pf.get('patient_name', {}).get('value', 'Not Found')}
+- VERIFIED AGE: {pf.get('age', {}).get('value', 'Not Found')}
+- VERIFIED GENDER: {pf.get('gender', {}).get('value', 'Not Found')}
+- VERIFIED DOB: {pf.get('dob', {}).get('value', 'Not Found')}
+- VERIFIED HOSPITAL: {pf.get('hospital', {}).get('value', 'Not Found')}
+- VERIFIED DOCTOR: {pf.get('doctor', {}).get('value', 'Not Found')}
+- VERIFIED REPORT DATE: {pf.get('report_date', {}).get('value', 'Not Found')}
+- VERIFIED BLOOD GROUP: {pf.get('blood_group', {}).get('value', 'Not Found')}
+
+MEDICAL REPORT TEXT (analyze ALL lab values found below):
+===BEGIN REPORT===
+{extracted_text[:10000]}
+===END REPORT===
+
+IMPORTANT: Extract every lab test value you see. Do NOT skip parameters.
+Calculate risk_score based on how many values are abnormal and how severely.
+Return ONLY the JSON object — no markdown, no explanation.
+"""
+
+    logger.info(f"[AI] Preparing request — text length: {len(extracted_text)} chars")
+    logger.info(f"[AI] Sample text (first 400 chars):\n{extracted_text[:400]}")
+
+    contents = [verified_block]
+
+    # For scanned PDFs, attach page images for vision analysis
+    if is_scanned and pdf_bytes:
+        try:
+            from pdf2image import convert_from_bytes
+            import config as cfg
+            logger.info("[AI] Scanned PDF detected — attaching images for vision analysis")
+            images = convert_from_bytes(pdf_bytes, dpi=180, poppler_path=cfg.POPPLER_PATH)
+            contents.insert(0, "These are scanned pages of a medical report. Extract ALL lab values visible:")
+            for img in images[:5]:
+                contents.append(img)
+            logger.info(f"[AI] Attached {min(len(images), 5)} page images for vision")
+        except Exception as e:
+            logger.warning(f"[AI] Could not attach PDF images for vision (likely missing poppler): {e}")
+            logger.info("[AI] Attaching raw PDF document directly for Gemini vision analysis...")
+            contents.insert(0, "This is a scanned medical report PDF. Extract ALL lab values visible:")
+            pdf_part = types.Part.from_bytes(
+                data=pdf_bytes,
+                mime_type="application/pdf"
+            )
+            contents.append(pdf_part)
+
+
+    # ── Call Gemini ───────────────────────────────────────────────────────────
+    raw_response = _call_gemini(contents)
+
+    logger.info(f"[AI] Raw response length: {len(raw_response)} chars")
+    logger.info(f"[AI] Raw response preview:\n{raw_response[:600]}")
+
+    # ── Parse JSON ────────────────────────────────────────────────────────────
+    try:
+        result = _extract_json(raw_response)
+    except (ValueError, Exception) as e:
+        logger.error(f"[AI] JSON parse failed: {e}")
+        logger.error(f"[AI] Full raw response:\n{raw_response}")
+        raise RuntimeError(f"AI returned unparseable response: {e}")
+
+    # ── Log extracted parameters ──────────────────────────────────────────────
+    params = result.get("extracted_parameters", [])
+    logger.info(f"[AI] Parameters extracted: {len(params)}")
+    for p in params:
+        logger.info(f"  • {p.get('name')} = {p.get('value')} {p.get('unit')} [{p.get('status')}]")
+
+    logger.info(f"[AI] risk_score={result.get('risk_score')} | overall_status={result.get('overall_status')}")
+    logger.info(f"[AI] disease_type={result.get('disease_type')}")
+
+    # ── Safety Override: Force regex-extracted patient data ───────────────────
+    verified_name = pf.get('patient_name', {}).get('value')
+    verified_age = pf.get('age', {}).get('value')
+    verified_gender = pf.get('gender', {}).get('value')
+
+    if verified_name and verified_name not in ("Not Found", "N/A", "", None):
+        result['patient_name'] = verified_name
+    if verified_age and verified_age not in ("Not Found", "N/A", "", None):
+        result['patient_age'] = verified_age
+    if verified_gender and verified_gender not in ("Not Found", "N/A", "", None):
+        result['gender'] = verified_gender
+
+    # Normalize "Not Found" → null
+    for field in ('patient_name', 'patient_age', 'gender', 'hospital', 'doctor', 'report_date'):
+        val = result.get(field)
+        if val in ("Not Found", "N/A", "null", "None", ""):
+            result[field] = None
+
+    # Ensure numeric risk_score
+    try:
+        result['risk_score'] = float(result.get('risk_score') or 0.0)
+    except (TypeError, ValueError):
+        result['risk_score'] = 0.0
+
+    # Ensure lists are lists
+    if not isinstance(result.get('extracted_parameters'), list):
+        result['extracted_parameters'] = []
+    if not isinstance(result.get('potential_diseases'), list):
+        result['potential_diseases'] = []
+    if not isinstance(result.get('doctor_questions'), list):
+        result['doctor_questions'] = []
+    if not isinstance(result.get('next_steps'), list):
+        result['next_steps'] = []
+
+    # If risk_score is 0 but parameters were extracted, set a minimum
+    if result['risk_score'] == 0 and len(result['extracted_parameters']) > 0:
+        abnormal = sum(1 for p in result['extracted_parameters'] if p.get('status') != 'normal')
+        result['risk_score'] = max(5.0, abnormal * 12.0)
+        logger.info(f"[AI] Adjusted risk_score from 0 to {result['risk_score']} based on {abnormal} abnormal params")
+
+    return result
+
+
+# ─── Trend Analysis ───────────────────────────────────────────────────────────
+
+def analyze_trend_with_gemini(historical_reports: list, latest_report: str) -> dict:
+    """Compare latest report against historical ones for trend analysis."""
+    prompt = "Patient's historical report summaries (oldest to newest):\n"
+    for i, report in enumerate(historical_reports[-5:]):  # Last 5 reports max
+        prompt += f"\nReport {i + 1}:\n{report[:1500]}\n"
+    prompt += f"\nLATEST REPORT:\n{latest_report[:5000]}\n\n"
+    prompt += (
+        "Compare the latest report to history. "
+        "Determine if the patient's health is Improving or Worsening. "
+        "Return the complete analysis JSON. Do NOT invent patient data."
+    )
+
+    raw = _call_gemini([prompt])
+    return _extract_json(raw)
+
+
+# ─── Legacy Compatibility Shims ───────────────────────────────────────────────
+
+def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+    result = run_extraction_pipeline(pdf_bytes)
+    return result["text"]
+
+
+def analyze_report_with_gemini(extracted_text: str, pdf_bytes: bytes = None) -> dict:
+    if pdf_bytes:
+        pipeline = run_extraction_pipeline(pdf_bytes)
+    else:
+        from pdf_extractor import clean_text, extract_patient_fields as _epf
+        clean = clean_text(extracted_text)
+        pd = _epf(clean)
+        pipeline = {
+            "text": clean,
+            "engine_used": "text_only",
+            "is_scanned": False,
+            "patient_fields": pd["fields"],
+        }
+
+    best_text = pipeline["text"] if pipeline["text"] else extracted_text
+    return analyze_with_ai(
+        extracted_text=best_text,
+        patient_fields=pipeline["patient_fields"],
+        pdf_bytes=pdf_bytes if pipeline["is_scanned"] else None,
+        is_scanned=pipeline["is_scanned"],
+    )
+
+# ─── Embedding and Chunking ───────────────────────────────────────────────────
+
+def chunk_text(text: str, max_size: int = 1000, overlap: int = 200) -> list[str]:
+    """
+    Split text into overlapping chunks.
+    Uses a simple character count approach.
+    """
+    if not text:
+        return []
+    
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + max_size
+        chunk = text[start:end]
+        chunks.append(chunk)
+        if end >= len(text):
+            break
+        start += (max_size - overlap)
+    
+    return chunks
+
+def generate_embedding(text: str) -> list[float]:
+    """
+    Generate vector embeddings using Gemini's gemini-embedding-2 model.
+    """
+    if not client:
+        raise RuntimeError("Gemini client is not initialized for embeddings.")
+    
+    try:
+        response = client.models.embed_content(
+            model="gemini-embedding-2",
+            contents=text,
+        )
+        # return the first embedding array
+        return response.embeddings[0].values
+    except Exception as e:
+        logger.error(f"[AI] Failed to generate embedding: {e}")
+        return []

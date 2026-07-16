@@ -18,6 +18,9 @@ import LifestyleActionMap from '../components/analysis/LifestyleActionMap';
 import DoctorQuestions from '../components/analysis/DoctorQuestions';
 import TrendReadiness from '../components/analysis/TrendReadiness';
 import NextHealthSteps from '../components/analysis/NextHealthSteps';
+import html2canvas from 'html2canvas';
+import ExercisePDFBuilder from '../components/pdf/ExercisePDFBuilder';
+import NutritionPDFBuilder from '../components/pdf/NutritionPDFBuilder';
 
 export default function Report() {
   const { id } = useParams();
@@ -52,16 +55,24 @@ export default function Report() {
     }
   };
 
-  const downloadPDF = (title, content) => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.setTextColor(59, 130, 246); // Brand Primary Blue
-    doc.text(title, 20, 20);
-    doc.setFontSize(12);
-    doc.setTextColor(50, 50, 50);
-    const splitText = doc.splitTextToSize(content, 170);
-    doc.text(splitText, 20, 30);
-    doc.save(`${title.replace(/\s+/g, '_').toLowerCase()}.pdf`);
+  const downloadPremiumPDF = async (type) => {
+    try {
+      const elementId = type === 'exercise' ? 'exercise-pdf-template' : 'nutrition-pdf-template';
+      const element = document.getElementById(elementId);
+      if (!element) {
+        alert("Plan data is not ready or missing.");
+        return;
+      }
+      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF('landscape', 'pt', [1200, 800]);
+      pdf.addImage(imgData, 'JPEG', 0, 0, 1200, 800);
+      pdf.save(`TonyHealth_${type}_Plan.pdf`);
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+      alert("Error generating PDF");
+    }
   };
 
   const getRiskColor = (score) => {
@@ -127,6 +138,11 @@ export default function Report() {
 
   const chartData = generateProjectionData(report.risk_score);
 
+  let exercisePlanJSON = null;
+  let foodPlanJSON = null;
+  try { exercisePlanJSON = JSON.parse(report.exercise_plan); } catch (e) {}
+  try { foodPlanJSON = JSON.parse(report.food_plan); } catch (e) {}
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -134,6 +150,11 @@ export default function Report() {
       transition={{ duration: 0.4 }}
       className="space-y-8"
     >
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        {exercisePlanJSON && <ExercisePDFBuilder plan={exercisePlanJSON} patientName={report.patient_name || 'Patient'} reportDate={new Date(report.timestamp).toLocaleDateString()} />}
+        {foodPlanJSON && <NutritionPDFBuilder plan={foodPlanJSON} patientName={report.patient_name || 'Patient'} reportDate={new Date(report.timestamp).toLocaleDateString()} />}
+      </div>
+      
       {/* Top Bar Navigation & Actions */}
       <div className="flex items-center justify-between">
         <button
@@ -367,10 +388,12 @@ export default function Report() {
                 <h3 className="text-base font-bold text-text-main flex items-center gap-2 mb-3">
                   <Activity className="w-5 h-5 text-brand-primary" /> Exercise Recommendation
                 </h3>
-                <p className="text-xs text-text-muted leading-relaxed mb-6">{report.exercise_plan}</p>
+                <p className="text-xs text-text-muted leading-relaxed mb-6">
+                  {exercisePlanJSON ? "Your personalized weekly exercise plan has been generated. It includes a 7-day schedule, calorie goals, and targeted guidelines based on your analysis. Download the PDF for the full breakdown." : report.exercise_plan}
+                </p>
               </div>
               <Button
-                onClick={() => downloadPDF('Weekly Exercise Plan', report.exercise_plan)}
+                onClick={() => exercisePlanJSON ? downloadPremiumPDF('exercise') : downloadPDF('Weekly Exercise Plan', report.exercise_plan)}
                 variant="secondary"
                 className="w-full flex items-center gap-2 text-xs py-3"
               >
@@ -384,10 +407,12 @@ export default function Report() {
                 <h3 className="text-base font-bold text-text-main flex items-center gap-2 mb-3">
                   <ListChecks className="w-5 h-5 text-brand-accent" /> Dietary Prevention Plan
                 </h3>
-                <p className="text-xs text-text-muted leading-relaxed mb-6">{report.food_plan}</p>
+                <p className="text-xs text-text-muted leading-relaxed mb-6">
+                  {foodPlanJSON ? "Your personalized weekly nutrition plan is ready. It features daily meal recommendations, hydration goals, and foods to prioritize or avoid. Download the PDF for your complete diet guide." : report.food_plan}
+                </p>
               </div>
               <Button
-                onClick={() => downloadPDF('Weekly Nutrition Plan', report.food_plan)}
+                onClick={() => foodPlanJSON ? downloadPremiumPDF('nutrition') : downloadPDF('Weekly Nutrition Plan', report.food_plan)}
                 variant="secondary"
                 className="w-full flex items-center gap-2 text-xs py-3"
               >
