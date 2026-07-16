@@ -9,10 +9,6 @@ import n8n_service
 import logging
 import re
 from deps import get_current_user
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from google.oauth2 import id_token
-from google.auth.transport import requests
-from pdf_extractor import run_extraction_pipeline
 
 router = APIRouter(tags=["reports"])
 logger = logging.getLogger(__name__)
@@ -29,10 +25,16 @@ def get_user_reports(
 ):
     if not user_id.isdigit():
         return []
-    db_user = db.query(models.User).filter(models.User.id == int(user_id)).first()
-    if not db_user or db_user.id != current_user.id:
+    if int(user_id) != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to view these reports")
-    return db_user.reports
+        
+    return (
+        db.query(models.Report)
+        .filter(models.Report.user_id == current_user.id)
+        .filter(models.Report.is_deleted == False)
+        .order_by(models.Report.timestamp.asc())
+        .all()
+    )
 
 
 @router.get("/reports", response_model=list[schemas.Report])
@@ -43,43 +45,25 @@ def get_all_reports(
     return (
         db.query(models.Report)
         .filter(models.Report.user_id == current_user.id)
+        .filter(models.Report.is_deleted == False)
         .order_by(models.Report.timestamp.asc())
         .all()
     )
 
 
-@router.post("/users/{user_id}/reports", response_model=schemas.Report)
-def create_report(
-    user_id: int,
-    report: schemas.ReportCreate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    if user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to create reports for this user")
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    db_report = models.Report(**report.dict(), user_id=user_id)
-    db.add(db_report)
-    db.commit()
-    db.refresh(db_report)
-    return db_report
-
-
 @router.post("/upload_report", response_model=schemas.Report)
 async def upload_and_analyze_report(
     file: UploadFile = File(...),
-    user_id: Optional[int] = Form(None),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Upload a medical report PDF, extract text, run AI analysis, and save the result.
-    Returns the saved report with all analysis fields populated.
+    Strictly isolated to the authenticated user.
     """
     # ── Read file ─────────────────────────────────────────────────────────────
     file_bytes = await file.read()
-    logger.info(f"[Upload] File received: '{file.filename}' | Size: {len(file_bytes)} bytes | ContentType: {file.content_type}")
+    logger.info(f"[Upload] File received: '{file.filename}' | Size: {len(file_bytes)} bytes")
 
     if len(file_bytes) == 0:
         raise HTTPException(
@@ -87,26 +71,27 @@ async def upload_and_analyze_report(
             detail="The uploaded file is empty. Please upload a valid PDF medical report."
         )
 
-    # ── Duplicate detection: skip AI if this exact file was already analyzed ───
+    # ── Duplicate detection ───────────────────────────────────────────────────
     import hashlib, json as _json
     file_hash = hashlib.sha256(file_bytes).hexdigest()
     existing = (
         db.query(models.Report)
         .filter(models.Report.pdf_filename == file.filename)
+        .filter(models.Report.user_id == current_user.id)
+        .filter(models.Report.is_deleted == False)
         .filter(models.Report.extracted_text.isnot(None))
         .order_by(models.Report.timestamp.desc())
         .first()
     )
-    # If same filename AND same user_id, return cached result (saves one Gemini call)
-    if existing and user_id and existing.user_id == user_id:
-        logger.info(f"[Upload] Duplicate detected for user {user_id} — returning cached report ID={existing.id}")
+    if existing:
+        logger.info(f"[Upload] Duplicate detected for user {current_user.id} — returning cached report ID={existing.id}")
         from fastapi.responses import JSONResponse
         cached = schemas.Report.model_validate(existing).model_dump()
         return JSONResponse(content=_serialize(cached))
 
     # ── Stage 1–3: Extract text from PDF ─────────────────────────────────────
-
     logger.info("[Upload] Starting multi-engine PDF extraction pipeline...")
+    from pdf_extractor import run_extraction_pipeline
     try:
         pipeline = run_extraction_pipeline(file_bytes)
     except Exception as e:
@@ -121,12 +106,9 @@ async def upload_and_analyze_report(
     is_scanned = pipeline["is_scanned"]
     engine_used = pipeline["engine_used"]
 
-    logger.info(
-        f"[Upload] Extraction complete | engine={engine_used} | "
-        f"chars={len(extracted_text)} | scanned={is_scanned}"
-    )
+    logger.info(f"[Upload] Extraction complete | engine={engine_used} | chars={len(extracted_text)} | scanned={is_scanned}")
 
-    # ── Fallback: Run OCR via vision model if text is sparse or is watermark-only ──
+    # ── Fallback: Run OCR via vision model ───────────────────────────────────
     meaningful_chars = len(extracted_text.replace(" ", "").replace("\n", ""))
     is_watermark_only = "camscanner" in extracted_text.lower().replace(" ", "") and meaningful_chars < 200
 
@@ -134,18 +116,14 @@ async def upload_and_analyze_report(
         logger.info("[Upload] Text is low quality or watermark-only. Attempting OCR extraction...")
         ocr_text = ""
         
-        # 1. Try local PDF rendering (if poppler is installed)
         try:
             from pdf2image import convert_from_bytes
             import config as cfg
-            logger.info("[Upload] Attempting local PDF-to-image conversion...")
             images = convert_from_bytes(file_bytes, dpi=180, poppler_path=cfg.POPPLER_PATH)
             
             ocr_texts = []
             for idx, img in enumerate(images[:5]):
-                logger.info(f"[OCR] Processing page {idx+1} for text extraction...")
                 ocr_prompt = "Perform OCR on this medical report page image. Extract and return ALL text, numbers, values, units, reference ranges, and flags exactly as written. Do not summarize. Do not write anything else besides the extracted text."
-                
                 page_text = ""
                 for model_choice in ["models/gemini-2.5-flash", "models/gemini-2.0-flash"]:
                     try:
@@ -155,42 +133,29 @@ async def upload_and_analyze_report(
                         )
                         page_text = response.text or ""
                         if page_text.strip():
-                            logger.info(f"[OCR] Page {idx+1} successfully read using {model_choice}.")
                             break
-                    except Exception as page_err:
-                        logger.warning(f"[OCR] Page {idx+1} failed with {model_choice}: {page_err}")
-                
+                    except Exception:
+                        pass
                 if page_text:
                     ocr_texts.append(page_text)
             
             ocr_text = "\n".join(ocr_texts).strip()
-        except Exception as ocr_err:
-            logger.warning(f"[OCR] Local PDF-to-image conversion failed (likely missing poppler): {ocr_err}")
+        except Exception:
+            pass
 
-        # 2. Cloud Fallback: Send PDF bytes directly to Gemini (no poppler needed)
         if not ocr_text.strip():
-            logger.info("[Upload] Falling back to direct Gemini PDF document processing...")
             from google.genai import types
             for model_choice in ["models/gemini-2.5-flash", "models/gemini-2.0-flash"]:
                 try:
                     prompt = "Perform OCR on this medical report PDF. Extract and return ALL text, numbers, values, units, reference ranges, and flags exactly as written. Do not summarize. Do not write anything else besides the extracted text."
-                    pdf_part = types.Part.from_bytes(
-                        data=file_bytes,
-                        mime_type="application/pdf"
-                    )
-                    response = ai_service.client.models.generate_content(
-                        model=model_choice,
-                        contents=[prompt, pdf_part],
-                    )
-                    text_out = response.text or ""
-                    if text_out.strip():
-                        logger.info(f"[OCR] Cloud PDF OCR successfully completed using {model_choice}.")
-                        ocr_text = text_out.strip()
+                    pdf_part = types.Part.from_bytes(data=file_bytes, mime_type="application/pdf")
+                    response = ai_service.client.models.generate_content(model=model_choice, contents=[prompt, pdf_part])
+                    if response.text and response.text.strip():
+                        ocr_text = response.text.strip()
                         break
-                except Exception as cloud_err:
-                    logger.error(f"[OCR] Cloud PDF OCR failed with {model_choice}: {cloud_err}")
+                except Exception:
+                    pass
 
-        # Clean extracted OCR text
         if ocr_text.strip():
             cleaned_ocr = re.sub(r'(?i)CamScanner', '', ocr_text)
             cleaned_ocr = re.sub(r' {2,}', ' ', cleaned_ocr)
@@ -198,7 +163,6 @@ async def upload_and_analyze_report(
             
             ocr_meaningful = len(cleaned_ocr.replace(" ", "").replace("\n", ""))
             if ocr_meaningful >= 50:
-                logger.info(f"[OCR] Successfully extracted {len(cleaned_ocr)} characters of medical text.")
                 extracted_text = cleaned_ocr
                 is_scanned = True
                 engine_used = "vision_ocr"
@@ -207,151 +171,48 @@ async def upload_and_analyze_report(
                 from pdf_extractor import extract_patient_fields
                 pd = extract_patient_fields(cleaned_ocr)
                 patient_fields = pd["fields"]
-            else:
-                logger.warning("[OCR] Extracted text was too sparse.")
 
-    # ── Validate: enough text to analyze? ─────────────────────────────────────
     if meaningful_chars < MIN_TEXT_FOR_ANALYSIS:
-        msg = "This scanned PDF could not be read clearly. Please upload a clearer scan or image."
-        logger.warning(f"[Upload] Insufficient text extracted after OCR attempt: {meaningful_chars} meaningful chars")
-        raise HTTPException(status_code=422, detail=msg)
+        raise HTTPException(status_code=422, detail="This scanned PDF could not be read clearly. Please upload a clearer scan or image.")
 
     # ── Stage 4: AI Analysis ──────────────────────────────────────────────────
     logger.info("[Upload] Starting AI analysis with Gemini...")
     try:
-        # Resolve user account
-        if user_id:
-            db_user = db.query(models.User).filter(models.User.id == user_id).first()
+        historical_reports = (
+            db.query(models.Report)
+            .filter(models.Report.user_id == current_user.id)
+            .filter(models.Report.is_deleted == False)
+            .order_by(models.Report.timestamp.asc())
+            .all()
+        )
+        if len(historical_reports) > 0:
+            logger.info(f"[Upload] Found {len(historical_reports)} historical reports — running trend analysis")
+            historical_texts = [r.extracted_text for r in historical_reports if r.extracted_text]
+            ai_result = ai_service.analyze_trend_with_gemini(historical_texts, extracted_text)
+            _apply_verified_fields(ai_result, patient_fields)
         else:
-            db_user = None
-
-        if db_user:
-            # Returning user — check history for trend analysis
-            historical_reports = (
-                db.query(models.Report)
-                .filter(models.Report.user_id == db_user.id)
-                .order_by(models.Report.timestamp.asc())
-                .all()
-            )
-            if len(historical_reports) > 0:
-                logger.info(f"[Upload] Found {len(historical_reports)} historical reports — running trend analysis")
-                historical_texts = [r.extracted_text for r in historical_reports if r.extracted_text]
-                ai_result = ai_service.analyze_trend_with_gemini(historical_texts, extracted_text)
-                _apply_verified_fields(ai_result, patient_fields)
-            else:
-                ai_result = ai_service.analyze_with_ai(
-                    extracted_text=extracted_text,
-                    patient_fields=patient_fields,
-                    pdf_bytes=file_bytes if is_scanned else None,
-                    is_scanned=is_scanned,
-                )
-        else:
-            # Anonymous upload
             ai_result = ai_service.analyze_with_ai(
                 extracted_text=extracted_text,
                 patient_fields=patient_fields,
                 pdf_bytes=file_bytes if is_scanned else None,
                 is_scanned=is_scanned,
             )
-
-            # Determine patient name for auto-account creation
-            patient_name = ai_result.get("patient_name") or patient_fields.get("patient_name", {}).get("value")
-            if not patient_name or patient_name.lower() in ("not found", "n/a", "none", "", "null"):
-                patient_name = None  # Stay anonymous
-
-            if patient_name:
-                # Auto-create or find existing account
-                db_user = db.query(models.User).filter(models.User.name == patient_name).first()
-                if db_user:
-                    # Returning patient — try trend analysis
-                    historical_reports = (
-                        db.query(models.Report)
-                        .filter(models.Report.user_id == db_user.id)
-                        .order_by(models.Report.timestamp.asc())
-                        .all()
-                    )
-                    if len(historical_reports) > 0:
-                        try:
-                            historical_texts = [r.extracted_text for r in historical_reports if r.extracted_text]
-                            ai_result = ai_service.analyze_trend_with_gemini(historical_texts, extracted_text)
-                            _apply_verified_fields(ai_result, patient_fields)
-                        except Exception as trend_err:
-                            logger.warning(f"[Upload] Trend analysis failed, using single-report result: {trend_err}")
-                else:
-                    # New patient — create account
-                    safe_name = patient_name.lower().replace(' ', '').replace(',', '')
-                    fake_email = f"{safe_name}@auto.generated"
-                    db_user = models.User(email=fake_email, name=patient_name)
-                    db.add(db_user)
-                    db.commit()
-                    db.refresh(db_user)
-                    logger.info(f"[Upload] Auto-created user account for patient: {patient_name!r}")
-            else:
-                # Truly anonymous — create a generic account
-                import uuid
-                anon_email = f"anon-{uuid.uuid4().hex[:8]}@auto.generated"
-                db_user = models.User(email=anon_email, name="Anonymous Patient")
-                db.add(db_user)
-                db.commit()
-                db.refresh(db_user)
-                logger.info(f"[Upload] Created anonymous user account: {anon_email}")
-
     except HTTPException:
         raise
     except ValueError as e:
-        # ai_service raises ValueError for insufficient text
-        logger.warning(f"[Upload] AI pre-validation failed: {e}")
         raise HTTPException(status_code=422, detail=str(e))
-    except RuntimeError as e:
-        # Gemini client issues or model failures (log full stack trace server-side)
-        err_msg = str(e)
-        logger.error(f"[Upload] AI RuntimeError: {err_msg}", exc_info=True)
-        
-        # Clean user-facing messages based on root causes
-        if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower():
-            friendly_detail = "AI analysis service quota exceeded (Rate limit / Resource Exhausted). Please wait a few seconds and try again."
-        elif "API_KEY_INVALID" in err_msg or "API key" in err_msg or "authentication" in err_msg.lower():
-            friendly_detail = "AI analysis authentication failed. Please verify that a valid HEALTH_AI_API key is configured in the backend environment."
-        else:
-            friendly_detail = "AI analysis service is temporarily unavailable or busy. Please try again."
-            
-        raise HTTPException(
-            status_code=503,
-            detail=friendly_detail
-        )
     except Exception as e:
-        logger.error(f"[Upload] Unexpected AI analysis error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="AI Analysis Failed: An unexpected error occurred. Please try again.")
-
-
-    # ── Log final AI result summary ───────────────────────────────────────────
-    params = ai_result.get("extracted_parameters", [])
-    abnormal = sum(1 for p in params if p.get("status", "normal") != "normal")
-    normal = len(params) - abnormal
-    logger.info(
-        f"[Upload] AI result summary: "
-        f"disease_type={ai_result.get('disease_type')!r} | "
-        f"risk_score={ai_result.get('risk_score')} | "
-        f"params={len(params)} ({abnormal} abnormal, {normal} normal) | "
-        f"overall_status={ai_result.get('overall_status')!r}"
-    )
-
-    # ── Build final patient name / age with fallback priority ────────────────
-    final_name = _resolve_field(
-        patient_fields.get("patient_name", {}).get("value"),
-        ai_result.get("patient_name"),
-        db_user.name if db_user else None
-    )
-    final_age = _resolve_field(
-        patient_fields.get("age", {}).get("value"),
-        ai_result.get("patient_age")
-    )
+        logger.error(f"[Upload] AI RuntimeError: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=503, detail="AI analysis service is temporarily unavailable or busy. Please try again.")
 
     # ── Persist Report ────────────────────────────────────────────────────────
-    text_to_store = extracted_text or f"Scanned PDF — AI Vision Analyzed: {ai_result.get('disease_type', 'Unknown')}"
+    final_name = _resolve_field(patient_fields.get("patient_name", {}).get("value"), ai_result.get("patient_name"), current_user.name)
+    final_age = _resolve_field(patient_fields.get("age", {}).get("value"), ai_result.get("patient_age"))
+
+    text_to_store = extracted_text or f"Scanned PDF — AI Analyzed: {ai_result.get('disease_type', 'Unknown')}"
 
     db_report = models.Report(
-        user_id=db_user.id if db_user else None,
+        user_id=current_user.id,
         pdf_filename=file.filename,
         extracted_text=text_to_store,
         patient_name=final_name,
@@ -380,34 +241,56 @@ async def upload_and_analyze_report(
     from fastapi.responses import JSONResponse
     return JSONResponse(content=_serialize(response_dict))
 
+
 @router.get("/reports/{report_id}", response_model=schemas.Report)
 def get_report(
     report_id: int,
-    db: Session = Depends(get_db),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Fetch a saved report by ID."""
-    report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    report = (
+        db.query(models.Report)
+        .filter(models.Report.id == report_id)
+        .filter(models.Report.is_deleted == False)
+        .first()
+    )
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-
-    if credentials and credentials.credentials:
-        try:
-            idinfo = id_token.verify_oauth2_token(credentials.credentials, requests.Request())
-            email = idinfo.get('email')
-            db_user = db.query(models.User).filter(models.User.email == email).first()
-            if db_user and report.user_id and report.user_id != db_user.id:
-                raise HTTPException(status_code=403, detail="Access denied: report belongs to another user")
-        except (ValueError, Exception):
-            pass  # Treat as anonymous
+        
+    if report.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied: report belongs to another user")
 
     return report
+
+
+@router.delete("/reports/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_report(
+    report_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Soft delete a report."""
+    report = (
+        db.query(models.Report)
+        .filter(models.Report.id == report_id)
+        .filter(models.Report.is_deleted == False)
+        .first()
+    )
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+        
+    if report.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied: report belongs to another user")
+
+    report.is_deleted = True
+    db.commit()
+    return
 
 
 # ─── Internal Helpers ─────────────────────────────────────────────────────────
 
 def _apply_verified_fields(ai_result: dict, patient_fields: dict) -> None:
-    """Force regex-extracted patient info into AI result (prevents AI hallucination)."""
     for key, ai_key in [("patient_name", "patient_name"), ("age", "patient_age"), ("gender", "gender")]:
         val = patient_fields.get(key, {}).get("value")
         if val and val not in ("Not Found", "N/A", "", None):
@@ -415,7 +298,6 @@ def _apply_verified_fields(ai_result: dict, patient_fields: dict) -> None:
 
 
 def _resolve_field(*values) -> Optional[str]:
-    """Return the first non-null, non-'Not Found' value from the list."""
     for v in values:
         if v and str(v).strip().lower() not in ("not found", "n/a", "none", "null", ""):
             return str(v).strip()
@@ -423,7 +305,6 @@ def _resolve_field(*values) -> Optional[str]:
 
 
 def _serialize(obj):
-    """Recursively convert datetime objects to ISO strings for JSON serialization."""
     import datetime
     if isinstance(obj, dict):
         return {k: _serialize(v) for k, v in obj.items()}

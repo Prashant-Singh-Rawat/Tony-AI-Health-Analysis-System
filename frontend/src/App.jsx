@@ -11,11 +11,18 @@ import Services from './pages/Services';
 import PatientCorner from './pages/PatientCorner';
 import Report from './pages/Report';
 import Chat from './pages/Chat';
+import Login from './pages/Login';
+import WorkoutTracker from './pages/WorkoutTracker';
+import ProtectedRoute from './components/ProtectedRoute';
 import { AlertOctagon, Server, Settings } from 'lucide-react';
 
 // Simple layout wrapper for inner/dashboard paths
 function ShellWrapper({ children }) {
-  return <Shell>{children}</Shell>;
+  return (
+    <ProtectedRoute>
+      <Shell>{children}</Shell>
+    </ProtectedRoute>
+  );
 }
 
 function ConfigErrorScreen() {
@@ -71,8 +78,9 @@ function App() {
       <AuthProvider>
         <Router>
           <Routes>
-            {/* Landing page remains without Shell */}
+            {/* Public routes */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
 
             {/* Inner Dashboard pages wrapped inside the Shell layout */}
             <Route path="/dashboard" element={<ShellWrapper><Dashboard /></ShellWrapper>} />
@@ -82,6 +90,7 @@ function App() {
             <Route path="/hospitals" element={<ShellWrapper><HospitalFinder /></ShellWrapper>} />
             <Route path="/medicines" element={<ShellWrapper><MedicinePrices /></ShellWrapper>} />
             <Route path="/services" element={<ShellWrapper><Services /></ShellWrapper>} />
+            <Route path="/workout" element={<ShellWrapper><WorkoutTracker /></ShellWrapper>} />
             <Route path="/patient-corner" element={<ShellWrapper><PatientCorner /></ShellWrapper>} />
           </Routes>
         </Router>

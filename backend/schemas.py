@@ -30,6 +30,16 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+class UserWithToken(User):
+    token: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
 class ReportBase(BaseModel):
     pdf_filename: Optional[str] = None
     extracted_text: Optional[str] = None

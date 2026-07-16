@@ -7,7 +7,6 @@ import {
   Activity, Heart, Stethoscope, Calendar, X,
   ShieldCheck, CreditCard, Info
 } from 'lucide-react';
-import MainNav from '../components/MainNav';
 import AuthModal from '../components/AuthModal';
 
 // ─── Indian Rupee diagnostic packages (INR, not USD) ────────────────────────
@@ -490,7 +489,6 @@ export default function Services() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-20">
-      <MainNav />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       {/* Hero banner */}

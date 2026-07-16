@@ -7,7 +7,7 @@ const python = path.join(backendDir, '.venv', 'Scripts', 'python.exe');
 
 const child = spawn(
   python,
-  ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8000'],
+  ['-m', 'uvicorn', 'main:app', '--host', '0.0.0.0', '--port', '8001'],
   {
     cwd: backendDir,
     stdio: 'inherit',

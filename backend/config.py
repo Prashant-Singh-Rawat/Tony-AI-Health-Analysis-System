@@ -6,6 +6,11 @@ load_dotenv()
 # App settings
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./tonyhealth.db")
 
+# JWT Authentication
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-key-for-development-only")
+JWT_ALGORITHM = "HS256"
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 1 week
+
 # Gemini settings
 HEALTH_AI_API = os.getenv("HEALTH_AI_API")
 POPPLER_PATH = os.getenv("POPPLER_PATH", None)

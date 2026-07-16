@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiService from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { Card, StatCard, Badge, Button } from '../components';
 import { motion } from 'framer-motion';
 import {
@@ -16,7 +17,7 @@ import {
 export default function Dashboard() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const radarData = [
@@ -45,14 +46,7 @@ export default function Dashboard() {
   ];
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('tony_health_user');
-    if (!storedUser) {
-      navigate('/');
-      return;
-    }
-
-    const parsedUser = JSON.parse(storedUser);
-    setUser(parsedUser);
+    if (!user) return;
 
     const fetchReports = async () => {
       try {
@@ -66,7 +60,7 @@ export default function Dashboard() {
     };
 
     fetchReports();
-  }, [navigate]);
+  }, [user]);
 
   if (!user) return null;
 

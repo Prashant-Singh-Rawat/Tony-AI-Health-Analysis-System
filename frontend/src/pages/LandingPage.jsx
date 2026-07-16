@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Heart, MapPin, Activity, Stethoscope, Shield,
   Award, Globe, Clock, ChevronRight, PhoneCall,
@@ -9,7 +9,6 @@ import {
 import axios from 'axios';
 
 import MainNav from '../components/MainNav';
-import AuthModal from '../components/AuthModal';
 import HeroSection from '../components/landing/HeroSection';
 import QuickActions from '../components/landing/QuickActions';
 import HealthNewsFeed from '../components/landing/HealthNewsFeed';
@@ -26,7 +25,7 @@ const WHY_CHOOSE = [
 ];
 
 export default function LandingPage() {
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const navigate = useNavigate();
   const [userAddress, setUserAddress] = useState('');
   const [userLat, setUserLat] = useState(null);
   const [userLon, setUserLon] = useState(null);
@@ -55,13 +54,12 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-bg-base font-sans text-text-main pb-0">
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       <MainNav detectedState="" userLat={userLat} userLon={userLon} />
 
       {/* Hero */}
       <HeroSection
         detectedAddress={userAddress}
-        onBookAppointment={() => setIsAuthOpen(true)}
+        onBookAppointment={() => navigate('/login')}
       />
 
       {/* Bento action deck */}

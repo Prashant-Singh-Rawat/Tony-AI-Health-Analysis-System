@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, JSON, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -19,8 +19,9 @@ class Report(Base):
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Enforced in application layer
     timestamp = Column(DateTime, default=datetime.utcnow)
+    is_deleted = Column(Boolean, default=False)
     
     # Store the actual text extracted from the PDF or the filename
     pdf_filename = Column(String, nullable=True)

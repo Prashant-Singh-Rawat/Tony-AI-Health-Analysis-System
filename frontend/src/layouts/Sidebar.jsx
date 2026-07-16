@@ -36,7 +36,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     { name: 'Health History', path: '/patient-corner', icon: History },
     { name: 'Health Trends', path: '/hospitals', icon: TrendingUp },
     { name: 'Nutrition', path: '/services', icon: Apple },
-    { name: 'Workout', path: '/services', icon: Dumbbell },
+    { name: 'Workout', path: '/workout', icon: Dumbbell },
     { name: 'Medication', path: '/medicines', icon: Pill },
     { name: 'Appointments', path: '/hospitals', icon: Calendar },
     { name: 'Analytics', path: '/dashboard', icon: BarChart2 },

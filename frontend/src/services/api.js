@@ -3,11 +3,11 @@ import axios from 'axios';
 // Remove all hardcoded production calls to localhost. Fallback only in dev.
 export const API_BASE_URL = import.meta.env.PROD
   ? (import.meta.env.VITE_API_URL || '')
-  : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
+  : (import.meta.env.VITE_API_URL || 'http://localhost:8001');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000, // 60 seconds timeout
+  timeout: 120000, // 120 seconds timeout
 });
 
 const RETRYABLE_METHODS = new Set(['get', 'head', 'options']);
@@ -58,6 +58,12 @@ api.interceptors.response.use(
       } catch (retryErr) {
         error = retryErr;
       }
+    }
+
+    // Auto-logout on 401
+    if (status === 401) {
+      localStorage.removeItem('tony_health_user');
+      window.location.hash = '#/login';
     }
 
     // Attach friendly message to the error object
@@ -121,6 +127,21 @@ export const apiService = {
   
   googleAuth: async (token) => {
     const response = await api.post('/auth/google', { token });
+    return response.data;
+  },
+  
+  login: async (email, password) => {
+    const response = await api.post('/auth/login', { email, password });
+    return response.data;
+  },
+
+  register: async (name, email, password) => {
+    const response = await api.post('/auth/register', { name, email, password });
+    return response.data;
+  },
+
+  deleteReport: async (id) => {
+    const response = await api.delete(`/reports/${id}`);
     return response.data;
   }
 };

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Phone, Globe, Loader2, Navigation, AlertCircle, Hospital, ArrowRight, Search } from 'lucide-react';
-import MainNav from '../components/MainNav';
 import apiService from '../services/api';
 
 export default function HospitalFinder() {
@@ -57,7 +56,6 @@ export default function HospitalFinder() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <MainNav />
 
       {/* Hero Banner */}
       <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 text-white py-14 px-6 relative overflow-hidden">

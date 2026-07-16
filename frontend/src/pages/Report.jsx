@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   CheckCircle, TrendingUp, TrendingDown, Activity, AlertTriangle,
-  ListChecks, ArrowLeft, Download, ShieldCheck, HeartPulse, Info
+  ListChecks, ArrowLeft, Download, ShieldCheck, HeartPulse, Info, Trash2
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -40,6 +40,17 @@ export default function Report() {
 
     fetchReport();
   }, [id]);
+
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to permanently delete this report?')) {
+      try {
+        await apiService.deleteReport(id);
+        navigate('/dashboard');
+      } catch (err) {
+        alert(err.message || 'Could not delete report');
+      }
+    }
+  };
 
   const downloadPDF = (title, content) => {
     const doc = new jsPDF();
@@ -123,13 +134,22 @@ export default function Report() {
       transition={{ duration: 0.4 }}
       className="space-y-8"
     >
-      {/* Back Button */}
-      <button
-        onClick={() => navigate('/dashboard')}
-        className="inline-flex items-center gap-2 text-xs font-bold text-text-muted hover:text-text-main transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-      </button>
+      {/* Top Bar Navigation & Actions */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="inline-flex items-center gap-2 text-xs font-bold text-text-muted hover:text-text-main transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+        </button>
+
+        <button
+          onClick={handleDelete}
+          className="inline-flex items-center gap-2 text-xs font-bold text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors border border-rose-100"
+        >
+          <Trash2 className="w-4 h-4" /> Delete Report
+        </button>
+      </div>
 
       {/* Main Diagnostic Card Layout */}
       <div className="bg-bg-surface border border-border-subtle rounded-3xl overflow-hidden shadow-xl">
