@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 import { Shield, Brain, Activity, Heart, User, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(false);
@@ -329,13 +330,28 @@ export default function Login() {
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-slate-200 rounded-xl shadow-sm bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="h-4 w-4 mr-2" />
-                Continue with Google
-              </button>
+              <GoogleLogin
+                onSuccess={async (credentialResponse) => {
+                  setLoading(true);
+                  setError('');
+                  try {
+                    const userData = await apiService.googleAuth(credentialResponse.credential);
+                    login(userData);
+                    navigate(from, { replace: true });
+                  } catch (err) {
+                    setError(err.friendlyMessage || err.response?.data?.detail || err.message || 'Google authentication failed');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                onError={() => setError('Google authentication failed')}
+                useOneTap
+                theme="outline"
+                size="large"
+                shape="rectangular"
+                width="100%"
+                text="continue_with"
+              />
               <button
                 type="button"
                 className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-slate-200 rounded-xl shadow-sm bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
