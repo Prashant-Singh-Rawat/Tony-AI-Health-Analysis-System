@@ -91,7 +91,7 @@ jobs:
         working-directory: ./frontend
         env:
           VITE_API_URL: https://tony-ai-health-analysis-system.onrender.com
-          VITE_GOOGLE_CLIENT_ID: 1028308432168-m83391gq8a4h8q14l1v64v1v88u0u7v9.apps.googleusercontent.com
+          VITE_GOOGLE_CLIENT_ID: 132721264540-a2794sbnqvens788p1tqe26asn0q1i9r.apps.googleusercontent.com
         run: npm run build
 
       - name: Deploy to GitHub Pages
