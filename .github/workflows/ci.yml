@@ -90,10 +90,8 @@ jobs:
       - name: Build frontend
         working-directory: ./frontend
         env:
-          # Set your Render backend URL as a GitHub Secret named VITE_API_URL
-          # Go to: GitHub Repo → Settings → Secrets and variables → Actions → New repository secret
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_API_URL: https://tony-ai-health-analysis-system.onrender.com
+          VITE_GOOGLE_CLIENT_ID: 1028308432168-m83391gq8a4h8q14l1v64v1v88u0u7v9.apps.googleusercontent.com
         run: npm run build
 
       - name: Deploy to GitHub Pages
