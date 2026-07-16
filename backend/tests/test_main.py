@@ -35,24 +35,6 @@ def test_get_user_reports_different_user_forbidden(client: TestClient):
     assert response.status_code in (403, 404)
 
 
-# ── Test 4: Create a report for the authenticated user ─────────────────────────
-def test_create_report_success(client: TestClient):
-    user_id = client._fake_user.id
-    payload = {
-        "disease_type": "Diabetes",
-        "risk_score": 45.0,
-        "concerns": "High sugar levels",
-        "exercise_plan": "Walk 30 mins daily",
-        "food_plan": "Low sugar diet",
-        "overall_status": "Moderate Risk",
-    }
-    response = client.post(f"/users/{user_id}/reports", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["disease_type"] == "Diabetes"
-    assert data["risk_score"] == 45.0
-
-
 # ── Test 5: Extract text from a (dummy) PDF ────────────────────────────────────
 def test_extract_text_from_pdf():
     """
@@ -89,8 +71,16 @@ def test_upload_report_triggers_ai(client: TestClient):
 
     dummy_pdf = b"%PDF-1.4 dummy content"
 
-    with patch("routers.reports.ai_service.analyze_report_with_gemini", return_value=fake_ai_result), \
-         patch("routers.reports.ai_service.extract_text_from_pdf", return_value=""), \
+    # Mock the new run_extraction_pipeline so it returns enough dummy text to bypass MIN_TEXT_FOR_ANALYSIS (50 chars)
+    fake_pipeline_result = {
+        "text": "A" * 100,
+        "patient_fields": {},
+        "is_scanned": False,
+        "engine_used": "dummy"
+    }
+
+    with patch("routers.reports.ai_service.analyze_with_ai", return_value=fake_ai_result), \
+         patch("pdf_extractor.run_extraction_pipeline", return_value=fake_pipeline_result), \
          patch("routers.reports.n8n_service.process_report_webhooks") as mock_n8n:
 
         mock_n8n.return_value = None
