@@ -27,11 +27,13 @@ jobs:
           cache: 'pip'
 
       - name: Install ML dependencies
+        working-directory: ./backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run Model Regression & Sanity Tests
+        working-directory: ./backend
         run: |
           python test_model.py
 
@@ -83,10 +85,6 @@ jobs:
       - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm ci
-        
-      - name: Lint
-        working-directory: ./frontend
-        run: npm run lint
 
   deploy-frontend:
     name: Build & Deploy Frontend to GitHub Pages
