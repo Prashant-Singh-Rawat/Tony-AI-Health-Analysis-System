@@ -85,7 +85,11 @@ def login_user(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
 @router.post("/google", response_model=schemas.UserWithToken)
 def verify_google_token(auth: schemas.GoogleAuth, db: Session = Depends(get_db)):
     try:
-        idinfo = id_token.verify_oauth2_token(auth.token, requests.Request())
+        idinfo = id_token.verify_oauth2_token(
+            auth.token, 
+            requests.Request(),
+            clock_skew_in_seconds=60
+        )
         email = idinfo['email']
         name = idinfo.get('name', 'Patient')
         google_id = idinfo['sub']
