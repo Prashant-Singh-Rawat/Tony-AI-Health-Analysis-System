@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Remove all hardcoded production calls to localhost. Fallback only in dev.
 export const API_BASE_URL = import.meta.env.PROD
-  ? (import.meta.env.VITE_API_URL || '')
+  ? (import.meta.env.VITE_API_URL || 'https://tony-ai-health-analysis-system.onrender.com')
   : (import.meta.env.VITE_API_URL || 'http://localhost:8001');
 
 const api = axios.create({
