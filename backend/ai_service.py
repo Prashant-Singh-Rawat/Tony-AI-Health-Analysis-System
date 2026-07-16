@@ -446,10 +446,16 @@ def chunk_text(text: str, max_size: int = 1000, overlap: int = 200) -> list[str]
         start += (max_size - overlap)
     
     return chunks
-
-def generate_embedding(text: str) -> list[float]:
+def analyze_with_ai(
+    extracted_text: str,
+    patient_fields: dict = None,
+    pdf_bytes: bytes = None,
+    is_scanned: bool = False,
+) -> dict:
     """
-    Generate vector embeddings using Gemini's text-embedding-004 model.
+    Send extracted text + verified patient fields to Gemini.
+    Patient data from regex extraction is passed as VERIFIED GROUND TRUTH.
+    Logs extensively so you can trace exactly what was sent and received.
     """
     # ── Pre-flight validation ─────────────────────────────────────────────────
     if not extracted_text or len(extracted_text.strip()) < 30:
