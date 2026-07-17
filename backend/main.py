@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine
 import models
-from routers import auth, reports, hospitals, medicines
+from routers import auth, reports, hospitals, medicines, repositories
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,6 +25,16 @@ try:
             if "next_steps" not in columns:
                 conn.execute(text("ALTER TABLE reports ADD COLUMN next_steps TEXT"))
                 logger.info("Added next_steps column to reports table")
+    
+    if "users" in inspector.get_table_names():
+        columns = [col["name"] for col in inspector.get_columns("users")]
+        with engine.begin() as conn:
+            if "google_id" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN google_id VARCHAR"))
+                logger.info("Added google_id column to users table")
+            if "hashed_password" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN hashed_password VARCHAR"))
+                logger.info("Added hashed_password column to users table")
 except Exception as migration_err:
     logger.warning(f"Database schema auto-migration check failed: {migration_err}")
 
@@ -48,24 +58,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global exception handler middleware to prevent server crashes
-@app.middleware("http")
-async def catch_exceptions_middleware(request, call_next):
-    try:
-        return await call_next(request)
-    except Exception as e:
-        logger.error(f"[GlobalError] Unhandled exception occurred: {e}", exc_info=True)
-        from fastapi.responses import JSONResponse
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "An internal server error occurred. Please try again later."}
-        )
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"[GlobalError] Unhandled exception occurred: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please try again later."}
+    )
 
 # Register sub-routers
 app.include_router(auth.router)
 app.include_router(reports.router)
 app.include_router(hospitals.router)
 app.include_router(medicines.router)
+app.include_router(repositories.router, prefix="/api")
 
 @app.get("/")
 def read_root():
