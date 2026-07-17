@@ -5,6 +5,7 @@ build/
 .env.*
 !.env.example
 *.db
+!backend/tonyhealth.db
 __pycache__/
 *.pyc
 venv/

@@ -23,9 +23,8 @@
 7. [Codebase Structure](#-codebase-structure)
 8. [Getting Started & Local Setup](#-getting-started--local-setup)
 9. [Environment Configuration](#-environment-configuration)
-10. [Machine Learning Model Pipeline](#-machine-learning-model-pipeline)
-11. [Contributing](#-contributing)
-12. [License](#-license)
+10. [Contributing](#-contributing)
+11. [License](#-license)
 
 ---
 
@@ -50,7 +49,6 @@ Designed for both individuals and healthcare providers, the system features:
 - **Autonomous Agent Control**: Trigger diagnostic workflows, fetch files, query databases, or execute browser operations via Serena and the MCP system.
 - **Lifecycle Workflows via n8n**: Automation alerts triggering Google Sheets logging, Telegram notifications, and email alerts for high-risk patients.
 - **Google OAuth Integration**: Secure user authentication and report history isolation.
-- **Standalone ML Predictor**: A Streamlit interface for instantaneous risk predictions using a trained Random Forest model.
 
 ---
 
@@ -127,9 +125,6 @@ graph TD
     B -->|8. Async Dispatch| H[n8n Webhook Server]
     H -->|Email & Telegram| I[SMTP / Telegram Bot]
     H -->|Database Sync| J[Google Sheets]
-    
-    F[Streamlit Web App] -->|Interactive Form| G[Random Forest Model heart_model.pkl]
-    G -->|Predict Risk Score| F
 ```
 
 ### Detailed Workflow Steps
@@ -160,11 +155,6 @@ graph TD
 - **PyPDF2**: Local text extraction from PDF files.
 - **Google Generative AI SDK**: Integrates `gemini-2.5-flash` for advanced report analysis.
 - **HTTPX**: Non-blocking client for executing external agent tools and n8n webhooks.
-
-### Machine Learning
-- **Scikit-Learn**: Used to train the Random Forest Classifier.
-- **Pandas & NumPy**: Data processing and matrix manipulation.
-- **Pickle**: Serializes and loads the trained model.
 
 ---
 
@@ -202,10 +192,6 @@ Heart-AI-System/
 │   ├── heart-ai-workflows.json
 │   └── README.md
 │
-├── app.py                 # Streamlit ML predictor interface
-├── train_model.py         # Script to train & serialize the Random Forest model
-├── heart_model.pkl        # Serialized Machine Learning model (generated)
-├── requirements.txt       # Global/Streamlit Python requirements
 └── LICENSE                # Open-source license
 ```
 
@@ -270,29 +256,7 @@ cd Heart-AI-System
 
 ---
 
-### Step 4: Standalone Machine Learning App (Streamlit)
-To interact directly with the tabular Random Forest model:
-1. Ensure you are in the root directory:
-   ```bash
-   cd Heart-AI-System
-   ```
-2. Install global dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Run the model training script (if `heart_model.pkl` is missing):
-   ```bash
-   python train_model.py
-   ```
-4. Start the Streamlit application:
-   ```bash
-   streamlit run app.py
-   ```
-   The application will open in your default browser at `http://localhost:8501`.
-
----
-
-### Step 5: Start n8n locally
+### Step 4: Start n8n locally
 To enable lifecycle workflows, spin up your n8n workspace:
 ```bash
 npx n8n
@@ -324,38 +288,6 @@ DOCTOR_EMAIL=doctor@hospital.com
 
 > [!IMPORTANT]
 > Never commit your `.env` file containing sensitive keys to GitHub. It is ignored by default in the `.gitignore` settings.
-
----
-
-## 🧠 Machine Learning Model Pipeline
-The system utilizes a Random Forest classifier trained on diagnostic features:
-- **Features (13)**: Age, Sex, Chest Pain type (cp), Resting Blood Pressure (trestbps), Cholesterol (chol), Fasting Blood Sugar (fbs), Resting Electrocardiographic results (restecg), Max Heart Rate achieved (thalach), Exercise Induced Angina (exang), ST depression (oldpeak), Slope of peak exercise ST segment (slope), Number of major vessels (ca), and Thalassemia (thal).
-- **Output**: Binary classification (`1` for High Risk, `0` for Low Risk).
-
-To retrain the model, modify `train_model.py` to use a real clinical dataset (e.g., the UCI Heart Disease Dataset) and run `python train_model.py`.
-
----
-
-## 🤖 Automated Testing & CI/CD Pipeline
-
-The project implements a comprehensive automation suite configured via GitHub Actions in [.github/workflows/ci.yml](file:///.github/workflows/ci.yml) to ensure code reliability and validate ML model integrity.
-
-### 🧪 ML Model Sanity & Regression Tests
-We have built a dedicated validation script, [test_model.py](file:///test_model.py), which runs:
-- **Model Load Checks**: Ensures `heart_model.pkl` is not corrupt and can be loaded.
-- **Dimension Matching**: Validates the model accepts exactly 13 medical input features.
-- **Prediction Verification**: Tests synthetic low-risk and high-risk patients to ensure predictions behave logically.
-- **Regression Evaluation**: Assesses classification accuracy against a validation matrix to prevent performance degradation below 80%.
-
-To run model tests locally:
-```bash
-python test_model.py
-```
-
-### ⚙️ CI/CD Workflow Triggers
-- **Pushes & PRs**: Runs automatically on every push or pull request to the `main` branch to prevent regression.
-- **Scheduled Weekly Check**: Triggers a cron job every Sunday at 00:00 UTC to verify model integrity against code changes.
-- **Manual Dispatch**: Can be run on-demand via the GitHub Actions dashboard (`workflow_dispatch`).
 
 ---
 

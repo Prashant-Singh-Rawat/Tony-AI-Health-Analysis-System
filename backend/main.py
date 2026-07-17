@@ -17,24 +17,39 @@ import os
 
 try:
     with engine.begin() as conn:
-        # Use IF NOT EXISTS to prevent race conditions on multi-worker deployments
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE"))
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS pdf_filename VARCHAR"))
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS extracted_text TEXT"))
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS patient_name VARCHAR"))
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS patient_age VARCHAR"))
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS extracted_parameters JSON"))
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS potential_diseases JSON"))
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS doctor_questions TEXT"))
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS next_steps TEXT"))
+        columns_to_add = [
+            "is_deleted BOOLEAN DEFAULT FALSE",
+            "pdf_filename VARCHAR",
+            "extracted_text TEXT",
+            "patient_name VARCHAR",
+            "patient_age VARCHAR",
+            "extracted_parameters JSON",
+            "potential_diseases JSON",
+            "doctor_questions TEXT",
+            "next_steps TEXT"
+        ]
+        for col_def in columns_to_add:
+            try:
+                conn.execute(text(f"ALTER TABLE reports ADD COLUMN {col_def}"))
+            except Exception as e:
+                if "duplicate column name" not in str(e).lower():
+                    logger.warning(f"Reports migration warning for {col_def}: {e}")
         logger.info("Migrated reports table")
 except Exception as e:
     logger.warning(f"Reports migration failed: {e}")
 
 try:
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS hashed_password VARCHAR"))
+        columns_to_add = [
+            "google_id VARCHAR",
+            "hashed_password VARCHAR"
+        ]
+        for col_def in columns_to_add:
+            try:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_def}"))
+            except Exception as e:
+                if "duplicate column name" not in str(e).lower():
+                    logger.warning(f"Users migration warning for {col_def}: {e}")
         logger.info("Migrated users table")
 except Exception as e:
     logger.warning(f"Users migration failed: {e}")
