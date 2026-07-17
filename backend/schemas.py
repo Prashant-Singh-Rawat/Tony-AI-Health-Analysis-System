@@ -67,3 +67,17 @@ class Report(ReportBase):
 
     class Config:
         from_attributes = True
+
+class RepositoryBase(BaseModel):
+    url: str
+
+class RepositoryCreate(RepositoryBase):
+    pass
+
+class RepositoryResponse(RepositoryBase):
+    id: int
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -47,3 +47,36 @@ class Report(Base):
 
     owner = relationship("User", back_populates="reports")
 
+
+class Repository(Base):
+    __tablename__ = "repositories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(String, index=True)
+    status = Column(String, default="pending") # pending, cloning, indexing, completed, failed
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    documents = relationship("Document", back_populates="repository", cascade="all, delete-orphan")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    repo_id = Column(Integer, ForeignKey("repositories.id"))
+    file_path = Column(String, index=True)
+    content = Column(Text)
+
+    repository = relationship("Repository", back_populates="documents")
+    chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
+
+
+class Chunk(Base):
+    __tablename__ = "chunks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id"))
+    chunk_text = Column(Text)
+    embedding = Column(JSON, nullable=True) # Storing vector array as JSON for now
+
+    document = relationship("Document", back_populates="chunks")
