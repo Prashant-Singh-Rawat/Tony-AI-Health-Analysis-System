@@ -85,11 +85,24 @@ def login_user(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
 @router.post("/google", response_model=schemas.UserWithToken)
 def verify_google_token(auth: schemas.GoogleAuth, db: Session = Depends(get_db)):
     try:
-        idinfo = id_token.verify_oauth2_token(
-            auth.token, 
-            requests.Request(),
-            clock_skew_in_seconds=60
-        )
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                auth.token, 
+                requests.Request(),
+                clock_skew_in_seconds=60
+            )
+        except ValueError as e:
+            if "Token used too early" in str(e):
+                import time
+                time.sleep(2) # wait for the clock to catch up
+                idinfo = id_token.verify_oauth2_token(
+                    auth.token, 
+                    requests.Request(),
+                    clock_skew_in_seconds=60
+                )
+            else:
+                raise e
+            
         email = idinfo['email']
         name = idinfo.get('name', 'Patient')
         google_id = idinfo['sub']
