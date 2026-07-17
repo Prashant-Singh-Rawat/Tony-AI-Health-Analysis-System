@@ -75,6 +75,23 @@ export default function Report() {
     }
   };
 
+  const downloadPDF = (title, textContent) => {
+    try {
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      pdf.setFontSize(16);
+      pdf.text(title, 40, 40);
+      pdf.setFontSize(11);
+      
+      const splitText = pdf.splitTextToSize(textContent || 'No plan available.', 500);
+      pdf.text(splitText, 40, 70);
+      
+      pdf.save(`TonyHealth_${title.replace(/\s+/g, '_')}.pdf`);
+    } catch (err) {
+      console.error("Error generating text PDF:", err);
+      alert("Error generating PDF");
+    }
+  };
+
   const getRiskColor = (score) => {
     if (score >= 70) return 'text-rose-500';
     if (score >= 40) return 'text-amber-500';
