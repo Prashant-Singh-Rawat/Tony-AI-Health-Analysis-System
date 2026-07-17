@@ -18,6 +18,13 @@ import os
 try:
     with engine.begin() as conn:
         # Use IF NOT EXISTS to prevent race conditions on multi-worker deployments
+        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE"))
+        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS pdf_filename VARCHAR"))
+        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS extracted_text TEXT"))
+        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS patient_name VARCHAR"))
+        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS patient_age VARCHAR"))
+        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS extracted_parameters JSON"))
+        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS potential_diseases JSON"))
         conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS doctor_questions TEXT"))
         conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS next_steps TEXT"))
         logger.info("Migrated reports table")
