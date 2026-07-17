@@ -157,8 +157,47 @@ export default function Report() {
 
   let exercisePlanJSON = null;
   let foodPlanJSON = null;
-  try { exercisePlanJSON = JSON.parse(report.exercise_plan); } catch (e) {}
-  try { foodPlanJSON = JSON.parse(report.food_plan); } catch (e) {}
+  
+  try { 
+    exercisePlanJSON = JSON.parse(report.exercise_plan); 
+  } catch (e) {
+    if (report.exercise_plan && typeof report.exercise_plan === 'string') {
+      exercisePlanJSON = {
+        plan_overview: { calories_burn: 2000, recommended_days: "5 Days", strength_days: "2 Days", daily_avg: "30 Min" },
+        guidelines: [report.exercise_plan],
+        schedule: [
+          { day: "MON", activity: "Cardio", intensity: "Moderate", duration: "30 Min" },
+          { day: "TUE", activity: "Strength", intensity: "Light", duration: "30 Min" },
+          { day: "WED", activity: "Active Recovery", intensity: "Low", duration: "20 Min" },
+          { day: "THU", activity: "Cardio", intensity: "Moderate", duration: "30 Min" },
+          { day: "FRI", activity: "Strength", intensity: "Light", duration: "30 Min" },
+          { day: "SAT", activity: "Outdoor Activity", intensity: "Moderate", duration: "45 Min" },
+          { day: "SUN", activity: "Rest", intensity: "None", duration: "0 Min" }
+        ],
+        benefits: ["Improved Health", "More Energy", "Better Sleep", "Stronger Heart"]
+      };
+    }
+  }
+
+  try { 
+    foodPlanJSON = JSON.parse(report.food_plan); 
+  } catch (e) {
+    if (report.food_plan && typeof report.food_plan === 'string') {
+      foodPlanJSON = {
+        nutrition_overview: { focus: ["Balanced Diet"], guidelines: [report.food_plan], hydration_glasses: 8 },
+        recommendations: { foods_to_eat: [{name: "Veggies", benefit: "Vitamins"}], foods_to_avoid: ["Junk food"], nutrition_tip: "Eat well, live well!" },
+        daily_meals: [
+          { day: "Mon", breakfast: "Healthy Breakfast", lunch: "Balanced Meal", snack: "Fruit", dinner: "Light Dinner" },
+          { day: "Tue", breakfast: "Healthy Breakfast", lunch: "Balanced Meal", snack: "Fruit", dinner: "Light Dinner" },
+          { day: "Wed", breakfast: "Healthy Breakfast", lunch: "Balanced Meal", snack: "Fruit", dinner: "Light Dinner" },
+          { day: "Thu", breakfast: "Healthy Breakfast", lunch: "Balanced Meal", snack: "Fruit", dinner: "Light Dinner" },
+          { day: "Fri", breakfast: "Healthy Breakfast", lunch: "Balanced Meal", snack: "Fruit", dinner: "Light Dinner" },
+          { day: "Sat", breakfast: "Healthy Breakfast", lunch: "Balanced Meal", snack: "Fruit", dinner: "Light Dinner" },
+          { day: "Sun", breakfast: "Healthy Breakfast", lunch: "Balanced Meal", snack: "Fruit", dinner: "Light Dinner" }
+        ]
+      };
+    }
+  }
 
   return (
     <motion.div
