@@ -18,7 +18,7 @@ import LifestyleActionMap from '../components/analysis/LifestyleActionMap';
 import DoctorQuestions from '../components/analysis/DoctorQuestions';
 import TrendReadiness from '../components/analysis/TrendReadiness';
 import NextHealthSteps from '../components/analysis/NextHealthSteps';
-import html2canvas from 'html2canvas';
+import { toJpeg } from 'html-to-image';
 import ExercisePDFBuilder from '../components/pdf/ExercisePDFBuilder';
 import NutritionPDFBuilder from '../components/pdf/NutritionPDFBuilder';
 
@@ -64,8 +64,11 @@ export default function Report() {
         return;
       }
       
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const imgData = await toJpeg(element, { 
+        quality: 1.0, 
+        pixelRatio: 2,
+        backgroundColor: '#ffffff'
+      });
       const pdf = new jsPDF('landscape', 'pt', [1200, 800]);
       pdf.addImage(imgData, 'JPEG', 0, 0, 1200, 800);
       pdf.save(`TonyHealth_${type}_Plan.pdf`);
