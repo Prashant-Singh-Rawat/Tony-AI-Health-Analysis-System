@@ -4,7 +4,7 @@ import {
   CheckCircle, TrendingUp, TrendingDown, Activity, AlertTriangle,
   ListChecks, ArrowLeft, Download, ShieldCheck, HeartPulse, Info, Trash2
 } from 'lucide-react';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import apiService from '../services/api';
 import { Card, Button, Badge } from '../components';
@@ -71,7 +71,7 @@ export default function Report() {
       pdf.save(`TonyHealth_${type}_Plan.pdf`);
     } catch (err) {
       console.error("Error generating PDF:", err);
-      alert("Error generating PDF");
+      alert("Error generating PDF: " + (err.message || String(err)));
     }
   };
 
