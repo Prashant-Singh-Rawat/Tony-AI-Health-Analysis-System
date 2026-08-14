@@ -2,22 +2,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Eye, EyeOff, Lock, Mail, Sparkles, User, X } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useFormValidation } from '../hooks/useFormValidation';
-import getPasswordStrength from '../utils/passwordStrength';
-import { validateAuth } from '../utils/validations/authValidation';
 
 export default function AuthModal({ isOpen, onClose }) {
   const { login } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const { values, errors, handleChange, validate, validateAll, reset } = useFormValidation(
-    { name: '', email: '', password: '', agreed: false },
-    validateAuth
-  );
-
-  const strength = getPasswordStrength(values.password);
 
   if (!isOpen) return null;
 
@@ -25,14 +18,9 @@ export default function AuthModal({ isOpen, onClose }) {
     e.preventDefault();
     setLoading(true);
     try {
-      if (!validateAll()) {
-        setLoading(false);
-        return;
-      }
       // Direct integration wrapper with existing AuthContext
-      await login(values.email, values.password, isSignUp ? values.name : undefined);
+      await login(email, password, isSignUp ? name : undefined);
       onClose();
-      reset();
     } catch {
       // Gracefully reset loader
     } finally {
@@ -100,20 +88,13 @@ export default function AuthModal({ isOpen, onClose }) {
               <div className="relative">
                 <Mail className="absolute left-4 top-3.5 w-4.5 h-4.5 text-gray-450" />
                 <input
-                  name="email"
                   type="email"
                   required
-                  value={values.email}
-                  onChange={handleChange}
-                  onBlur={(e) => validate('email', e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@domain.com"
-                  aria-invalid={errors.email ? 'true' : 'false'}
-                  aria-describedby={errors.email ? 'email-error' : null}
-                  className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-150 dark:border-gray-850 bg-gray-50/50 dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-gray-900 dark:text-white font-semibold ${errors.email ? 'border-red-500' : ''}`}
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-150 dark:border-gray-850 bg-gray-50/50 dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-gray-900 dark:text-white font-semibold"
                 />
-                {errors.email && (
-                  <p id="email-error" className="text-xs text-rose-500 font-medium mt-1.5">{errors.email}</p>
-                )}
               </div>
             </div>
 
@@ -123,15 +104,11 @@ export default function AuthModal({ isOpen, onClose }) {
                 <Lock className="absolute left-4 top-3.5 w-4.5 h-4.5 text-gray-450" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  name="password"
                   required
-                  value={values.password}
-                  onChange={handleChange}
-                  onBlur={(e) => validate('password', e.target.value)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  aria-invalid={errors.password ? 'true' : 'false'}
-                  aria-describedby={errors.password ? 'password-error' : null}
-                  className={`w-full pl-11 pr-11 py-3 rounded-xl border border-gray-150 dark:border-gray-850 bg-gray-50/50 dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-gray-900 dark:text-white font-semibold ${errors.password ? 'border-red-500' : ''}`}
+                  className="w-full pl-11 pr-11 py-3 rounded-xl border border-gray-150 dark:border-gray-850 bg-gray-50/50 dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-gray-900 dark:text-white font-semibold"
                 />
                 <button
                   type="button"
@@ -142,22 +119,6 @@ export default function AuthModal({ isOpen, onClose }) {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {isSignUp && values.password.length > 0 && (
-                <div className="mt-3">
-                  <div className="flex gap-1.5 h-1.5 mb-1.5">
-                    {[1, 2, 3, 4].map((level) => (
-                      <div
-                        key={level}
-                        className={`flex-1 rounded-full transition-colors duration-300 ${strength.score >= level ? strength.colorClass : 'bg-slate-100'}`}
-                      />
-                    ))}
-                  </div>
-                  <p className={`text-[11px] font-bold ${strength.textClass}`}>{strength.label}</p>
-                </div>
-              )}
-              {errors.password && (
-                <p id="password-error" className="text-xs text-rose-500 font-medium mt-1.5">{errors.password}</p>
-              )}
             </div>
 
             <button
