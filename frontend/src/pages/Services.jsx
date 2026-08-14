@@ -1,13 +1,28 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
-  MapPin, Navigation, Search, Clock, Star, Phone,
-  ExternalLink, RefreshCw, Dumbbell, Pill, Compass,
-  CheckCircle, AlertCircle, WifiOff, ChevronRight,
-  Activity, Heart, Stethoscope, Calendar, X,
-  ShieldCheck, CreditCard, Info
+  Activity,
+  AlertCircle,
+  Calendar,
+  CheckCircle,
+  ChevronRight,
+  Clock,
+  Compass,
+  CreditCard,
+  Dumbbell,
+  Info,
+  MapPin, Navigation,
+  Phone,
+  Pill,
+  Search,
+  ShieldCheck,
+  Stethoscope,
+  WifiOff,
+  X
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AuthModal from '../components/AuthModal';
+import { useFormValidation } from "../hooks/useFormValidation";
+import { validateBooking } from '../utils/validations/bookingValidation';
 
 // ─── Indian Rupee diagnostic packages (INR, not USD) ────────────────────────
 const CHECKUP_PACKAGES = [
@@ -286,13 +301,24 @@ function NearbySection({ title, icon: Icon, places, loading, status, emptyMsg, t
 
 // ─── Booking modal ───────────────────────────────────────────────────────────
 function BookingModal({ item, onClose }) {
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('07:00 AM - 09:00 AM');
   const [booked, setBooked] = useState(false);
+  const [hasErrors, setHasErrors] = useState(false);
 
   const priceINR = item.priceINR;
   const mrpINR = item.mrpINR;
   const saved = mrpINR ? mrpINR - priceINR : null;
+
+  const { values: formData, errors, handleChange, validateAll, validate } = useFormValidation(
+    { time: '', date: '' },
+    validateBooking
+  );
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!validateAll()) return;
+    setBooked(true);
+    setHasErrors(Object.values(errors).some((err) => err))
+  };
 
   return (
     <div
@@ -329,7 +355,7 @@ function BookingModal({ item, onClose }) {
 
         {!booked ? (
           <form
-            onSubmit={(e) => { e.preventDefault(); if (date) setBooked(true); }}
+            onSubmit={handleSubmit}
             className="p-6 space-y-5"
           >
             <div>
@@ -337,25 +363,49 @@ function BookingModal({ item, onClose }) {
               <input
                 type="date"
                 required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={formData.date}
+                onChange={handleChange}
+                onBlur={(e) => validate("date", e.target.value)}
+                aria-invalid={errors.date ? "true" : "false"}
+                name="date"
+                aria-describedby={errors.date ? "date-error" : null}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full border border-gray-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-brand text-gray-700 text-sm"
+                className={`w-full border border-gray-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-brand text-gray-700 text-sm ${
+                  errors.date
+                    ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
+                    : 'border-gray-200 border focus:ring-indigo-500/20 focus:border-indigo-500'
+                }`}
               />
+              {errors.date && (
+                <p id="date-error" className="text-xs text-rose-500 font-medium mt-1.5">{errors.date}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Preferred Time Slot</label>
               <select
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-brand text-gray-700 bg-white text-sm"
+                value={formData.time}
+                onChange={handleChange}
+                onBlur={(e) => validate("time", e.target.value)}
+                aria-invalid={errors.time ? "true" : "false"}
+                aria-describedby={errors.time ? "time-error" : null}
+                name="time"
+                required
+                className={`w-full border rounded-xl p-3 outline-none focus:ring-2 focus:ring-brand text-gray-700 bg-white text-sm ${
+                  errors.time
+                    ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
+                    : 'border-gray-200 focus:ring-indigo-500/20 focus:border-indigo-500'
+                }`}
               >
+                <option value="" disabled>Select a time slot</option>
                 <option>07:00 AM – 09:00 AM (Recommended for Fasting)</option>
                 <option>09:00 AM – 11:00 AM</option>
                 <option>11:00 AM – 01:00 PM</option>
                 <option>02:00 PM – 04:00 PM</option>
                 <option>04:00 PM – 06:00 PM</option>
               </select>
+              {errors.time && (
+                <p id="time-error" className="text-xs text-rose-500 font-medium mt-1.5">{errors.time}</p>
+              )}
             </div>
             <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -373,7 +423,12 @@ function BookingModal({ item, onClose }) {
             </div>
             <button
               type="submit"
-              className="w-full bg-brand text-white font-bold py-3.5 rounded-2xl hover:bg-brand-dark transition shadow-md shadow-red-200 flex items-center justify-center gap-2"
+              disabled={hasErrors || !formData.date || !formData.time}
+              className={`w-full text-white font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 ${
+                hasErrors || !formData.date || !formData.time
+                  ? "bg-gray-400 cursor-not-allowed opacity-60 shadow-none"
+                  : "bg-brand hover:bg-brand-dark shadow-md shadow-red-200"
+              }`}
             >
               <ShieldCheck className="w-5 h-5" /> Confirm Appointment
             </button>
@@ -386,8 +441,8 @@ function BookingModal({ item, onClose }) {
             <div>
               <h4 className="text-xl font-black text-gray-800">Appointment Scheduled!</h4>
               <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto leading-relaxed">
-                <strong>{item.name}</strong> booked for <strong>{date}</strong> during{' '}
-                <strong>{time.split('–')[0].trim()}</strong>.
+                <strong>{item.name}</strong> booked for <strong>{formData.date}</strong> during{' '}
+                <strong>{formData.time.split('–')[0].trim()}</strong>.
               </p>
             </div>
             <div className="bg-gray-50 border border-gray-100 rounded-2xl text-sm text-gray-600 p-4 space-y-2 text-left">

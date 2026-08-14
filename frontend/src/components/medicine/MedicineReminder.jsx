@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
-import { Bell, Plus, Check, Trash2, Calendar, AlertCircle } from 'lucide-react';
+import { AlertCircle, Bell, Calendar, Check, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useFormValidation } from '../../hooks/useFormValidation';
+import { validateMedicine } from '../../utils/validations/medicineValidation';
 
 export default function MedicineReminder() {
   const [reminders, setReminders] = useState([
     { id: 1, name: 'Paracetamol 500mg', time: '08:00 AM', taken: false, frequency: 'Daily' },
     { id: 2, name: 'Atorvastatin 10mg', time: '09:00 PM', taken: true, frequency: 'Daily' },
   ]);
-  const [newName, setNewName] = useState('');
-  const [newTime, setNewTime] = useState('08:00');
   const [showAddForm, setShowAddForm] = useState(false);
 
+  const { values: formData, errors, handleChange, validateAll, validate, reset } = useFormValidation(
+    { medicineName: '', reminderTime: '08:00' },
+    validateMedicine
+  );
+
   const toggleTaken = (id) => {
-    setReminders(
-      reminders.map((r) => (r.id === id ? { ...r, taken: !r.taken } : r))
-    );
+    setReminders(reminders.map((r) => (r.id === id ? { ...r, taken: !r.taken } : r)));
   };
 
   const removeReminder = (id) => {
@@ -22,27 +25,35 @@ export default function MedicineReminder() {
 
   const handleAdd = (e) => {
     e.preventDefault();
-    if (!newName.trim()) return;
 
-    // Convert 24h input time to 12h AM/PM
-    const [hours, minutes] = newTime.split(':');
-    let h = parseInt(hours);
+    if (!validateAll()) {
+      return;
+    }
+
+    const name = formData.medicineName.trim();
+    const time = formData.reminderTime;
+
+    if (!name) return;
+
+    const [hours, minutes] = time.split(':');
+    let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
-    h = h ? h : 12; // hour '0' should be '12'
+    h = h || 12;
     const formattedTime = `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
 
     setReminders([
       ...reminders,
       {
         id: Date.now(),
-        name: newName.trim(),
+        name,
         time: formattedTime,
         taken: false,
         frequency: 'Daily',
       },
     ]);
-    setNewName('');
+
+    reset({ medicineName: '', reminderTime: '08:00' });
     setShowAddForm(false);
   };
 
@@ -76,27 +87,52 @@ export default function MedicineReminder() {
               <input
                 type="text"
                 placeholder="e.g. Metformin 500mg"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-border-subtle bg-bg-surface text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                value={formData.medicineName}
+                onChange={handleChange}
+                name="medicineName"
+                onBlur={(e) => validate('medicineName', e.target.value)}
+                aria-invalid={errors.medicineName ? 'true' : 'false'}
+                aria-describedby={errors.medicineName ? 'medicineName-error' : null}
+                className={`w-full px-3 py-2 rounded-lg border bg-bg-surface text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-brand-primary ${
+                  errors.medicineName
+                    ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
+                    : 'border-border-subtle focus:ring-indigo-500/20 focus:border-indigo-500'
+                }`}
                 required
               />
+              {errors.medicineName && (
+                <p id="medicineName-error" className="text-[11px] text-rose-500 font-medium">{errors.medicineName}</p>
+              )}
             </div>
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Reminder Time</span>
               <input
                 type="time"
-                value={newTime}
-                onChange={(e) => setNewTime(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-border-subtle bg-bg-surface text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                value={formData.reminderTime}
+                name="reminderTime"
+                onChange={handleChange}
+                onBlur={(e) => validate('reminderTime', e.target.value)}
+                aria-invalid={errors.reminderTime ? 'true' : 'false'}
+                aria-describedby={errors.reminderTime ? 'reminderTime-error' : null}
+                className={`w-full px-3 py-2 rounded-lg border bg-bg-surface text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-brand-primary ${
+                  errors.reminderTime
+                    ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
+                    : 'border-border-subtle focus:ring-indigo-500/20 focus:border-indigo-500'
+                }`}
                 required
               />
+              {errors.reminderTime && (
+                <p id="reminderTime-error" className="text-[11px] text-rose-500 font-medium">{errors.reminderTime}</p>
+              )}
             </div>
           </div>
           <div className="flex gap-2 justify-end">
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
+              onClick={() => {
+                reset({ medicineName: '', reminderTime: '08:00' });
+                setShowAddForm(false);
+              }}
               className="text-xs text-text-muted font-bold px-3 py-2 hover:bg-bg-surface-hover rounded-lg transition"
             >
               Cancel
