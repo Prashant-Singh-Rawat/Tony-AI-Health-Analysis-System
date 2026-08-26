@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import apiService from '../services/api';
-import { Shield, Brain, Activity, Heart, User, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight, Check } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { GoogleLogin } from '@react-oauth/google';
+import { motion } from 'framer-motion';
+import { Activity, AlertCircle, ArrowRight, Brain, Eye, EyeOff, Heart, Lock, Mail, Shield, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useFormValidation } from "../hooks/useFormValidation";
+import apiService from '../services/api';
+import { validateAuth } from '../utils/validations/authValidation';
+
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', agreed: false });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -18,6 +20,11 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
+  
+  const { values: formData, errors, handleChange, validateAll, validate, reset } = useFormValidation(
+    { name: '', email: '', password: '', agreed: false },
+    validateAuth
+  );
 
   useEffect(() => {
     let score = 0;
@@ -52,16 +59,9 @@ export default function Login() {
     return '';
   };
 
-  const handleChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setFormData({ ...formData, [e.target.name]: value });
-    setError('');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isLogin && !formData.agreed) {
-      setError('You must agree to the Terms of Service and Privacy Policy');
+    if (!validateAll()) {
       return;
     }
 
@@ -218,10 +218,20 @@ export default function Login() {
                     required={!isLogin}
                     value={formData.name}
                     onChange={handleChange}
-                    className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all sm:text-sm shadow-sm"
+                    onBlur={(e) => validate("name", e.target.value)}
+                    aria-invalid={errors.name ? "true" : "false"}
+                    aria-describedby={errors.name ? "name-error" : null}
+                    className={`block w-full pl-10 pr-4 py-3 border rounded-xl bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all sm:text-sm shadow-sm ${
+                      errors.name 
+                        ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+                        : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'
+                    }`}
                     placeholder="Tony Stark"
                   />
                 </div>
+                {errors.name && (
+                  <p id="name-error" className="text-xs text-rose-500 font-medium mt-1.5">{errors.name}</p>
+                )}
               </div>
             )}
 
@@ -237,10 +247,20 @@ export default function Login() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all sm:text-sm shadow-sm"
+                  onBlur={(e) => validate("email", e.target.value)}
+                  aria-invalid={errors.email ? "true" : "false"}
+                  aria-describedby={errors.email ? "email-error" : null}
+                  className={`block w-full pl-10 pr-4 py-3 border rounded-xl bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all sm:text-sm shadow-sm ${
+                    errors.email 
+                      ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+                      : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'
+                  }`}
                   placeholder="name@domain.com"
                 />
               </div>
+              {errors.email && (
+                <p id="email-error" className="text-xs text-rose-500 font-medium mt-1.5">{errors.email}</p>
+              )}
             </div>
 
             <div>
@@ -255,7 +275,12 @@ export default function Login() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all sm:text-sm shadow-sm"
+                  onBlur={(e) => validate("password", e.target.value)}
+                  className={`block w-full pl-10 pr-10 py-3 border rounded-xl bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all sm:text-sm shadow-sm ${
+                    errors.password 
+                      ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+                      : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'
+                  }`}
                   placeholder="••••••••••••"
                 />
                 <button
@@ -266,6 +291,9 @@ export default function Login() {
                   {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-xs text-rose-500 font-medium mt-1.5">{errors.password}</p>
+              )}
               
               {!isLogin && formData.password.length > 0 && (
                 <div className="mt-3">
@@ -285,20 +313,29 @@ export default function Login() {
             </div>
 
             {!isLogin && (
-              <div className="flex items-start mt-2">
-                <div className="flex items-center h-5">
-                  <input
-                    id="agreed"
-                    name="agreed"
-                    type="checkbox"
-                    checked={formData.agreed}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
-                  />
+              <div>
+                <div className="flex items-start mt-2">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="agreed"
+                      name="agreed"
+                      type="checkbox"
+                      checked={formData.agreed}
+                      onChange={handleChange}
+                      className={`w-4 h-4 rounded focus:ring-indigo-500 cursor-pointer ${
+                        errors.agreed
+                          ? 'border-red-500 text-red-600 bg-red-50'
+                          : 'text-indigo-600 bg-white border-slate-300'
+                      }`}
+                    />
+                  </div>
+                  <label htmlFor="agreed" className="ml-2 text-[12px] font-medium text-slate-600">
+                    I agree to the <a href="#" className="text-indigo-600 hover:underline">Terms of Service</a> and <a href="#" className="text-indigo-600 hover:underline">Privacy Policy</a>
+                  </label>
                 </div>
-                <label htmlFor="agreed" className="ml-2 text-[12px] font-medium text-slate-600">
-                  I agree to the <a href="#" className="text-indigo-600 hover:underline">Terms of Service</a> and <a href="#" className="text-indigo-600 hover:underline">Privacy Policy</a>
-                </label>
+                {errors.agreed && (
+                  <p className="text-xs text-rose-500 font-medium mt-1.5">{errors.agreed}</p>
+                )}
               </div>
             )}
 
@@ -370,7 +407,7 @@ export default function Login() {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError('');
-                setFormData({ name: '', email: '', password: '', agreed: false });
+                reset();
               }}
               className="text-indigo-600 hover:text-indigo-500 font-bold hover:underline"
             >
